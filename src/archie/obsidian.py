@@ -9,7 +9,7 @@ from .telemetry import Telemetry
 from .vision import VisionRecorder
 
 
-PAGE = """<!doctype html><meta charset=utf-8><title>Obsidian · Archie</title>
+PAGE = r"""<!doctype html><meta charset=utf-8><title>Obsidian · Archie</title>
 <style>body{font:16px system-ui;background:#0b0d12;color:#e7e9ee;margin:2rem}h1{color:#a98cff}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.card{background:#171a23;padding:1rem;border-radius:10px}.muted{color:#9298a8}pre{white-space:pre-wrap}</style>
 <h1>Obsidian</h1><p class=muted>Archie live construction telemetry</p>
 <div class=grid><div class=card><h2>Build progress</h2><strong id=progress>0%</strong></div><div class=card><h2>Agent</h2><pre id=agent>Waiting…</pre></div><div class=card><h2>Neural model</h2><strong>NO LEARNED MODEL ACTIVE</strong></div></div>
