@@ -6,6 +6,7 @@
 
 - [[Project Overview]]
 - [[Project State]]
+- [[Neural Model]]
 
 ## Current milestone
 
