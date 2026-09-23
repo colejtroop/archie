@@ -1,6 +1,6 @@
 # Bedrock V0 physical placement
 
-Archie's first live body uses the experimental Bedrock GameTest `SimulatedPlayer`. The pack performs real player navigation and inventory-based block placement. Direct block writes are used only to reset its tiny support/air test fixture.
+Archie's first live body uses the experimental Bedrock GameTest `SimulatedPlayer`. The pack performs real player navigation and inventory-based block placement. Direct block writes are used only to reset its support/air test fixture.
 
 The first end-to-end physical placement was verified in Minecraft Preview on 2026-09-22. The run emitted `EPISODE_STARTED`, state and movement events, `BLOCK_PLACEMENT_SUCCEEDED`, and `EPISODE_COMPLETED` with exact completion and no missing blocks.
 
@@ -32,10 +32,11 @@ Expected behavior:
 
 1. Chat reports `EPISODE_STARTED`.
 2. A player named **Archie** appears three blocks away.
-3. Archie walks toward the target.
-4. Archie selects stone and uses it on a support block.
-5. The pack reads the target block after the action.
-6. Chat reports `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` with `exact_completion: true`.
+3. The pack loads a bottom-up 3×3 stone-wall plan.
+4. For each target, Archie moves into reach, selects stone, and physically uses it on the supporting block.
+5. Each placement is observed and retried up to three times when verification fails.
+6. The complete structure is checked against all nine targets.
+7. Chat reports `EPISODE_COMPLETED` with `exact_completion: true`, nine correct blocks, and zero missing blocks.
 
 If it fails, retain the complete purple `[Archie]` chat message. Its structured payload identifies the failed stage and API error.
 

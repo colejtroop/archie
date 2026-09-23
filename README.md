@@ -15,6 +15,7 @@ Archie is a research platform for an embodied neural agent that physically const
 - Obsidian live build, agent, event, vision, and honest no-model states
 - Dependency-free simulation demo and focused unit tests
 - Verified Minecraft Preview first-block run: Archie physically moved, placed stone, observed it, and reported exact completion
+- Verified Minecraft Preview 3×3 wall run: nine physical placements with per-block observation, retries, progress, and final structure verification
 
 ### Experimental
 
@@ -52,8 +53,8 @@ The intended live Bedrock implementation uses Microsoft's experimental GameTest 
 
 ## Roadmap
 
-1. Stream the pack's structured events to the Python telemetry transport.
-2. Stream Bedrock state and Windows first-person capture into Archie/Obsidian.
-3. Complete the tiny-wall live demo, then add expert trajectory recording.
-4. Train a PyTorch visual encoder fused with privileged state, progressively ablating privileged inputs.
+1. Record synchronized expert trajectories from the verified physical wall builder.
+2. Stream Bedrock state and bounded first-person capture into the training pipeline.
+3. Train an initial PyTorch construction policy/visual encoder fused with privileged state.
+4. Progressively ablate privileged inputs while preserving physical build performance.
 

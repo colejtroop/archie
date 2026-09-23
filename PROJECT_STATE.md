@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-V0 first-block milestone verified in Minecraft Preview on 2026-09-22.
+V0 physical 3×3 wall milestone verified in Minecraft Preview on 2026-09-23.
 
 ## What works
 
@@ -12,9 +12,10 @@ V0 first-block milestone verified in Minecraft Preview on 2026-09-22.
 - Optional survival fields from the first agent-state schema
 - Sampled/bounded vision records with synchronized privileged labels
 - Obsidian dashboard, including ARCHIE VISION and explicit no-model/no-frame states
-- Six focused tests pass on a portable Python 3.13.7 runtime; the 3×3 demo reports exact completion (9/9 blocks)
+- Nine focused tests pass on a portable Python 3.13.7 runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
 - Packageable Preview behavior pack spawns a `SimulatedPlayer`, navigates, places via inventory interaction, observes the result, and emits structured chat telemetry
 - Live Preview run completed with `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` (`exact_completion: true`, one correct block, zero missing blocks)
+- Live Preview multi-block run physically built and verified a complete 3×3 stone wall through nine player-driven placements
 
 ## Decisions
 
@@ -38,4 +39,4 @@ python -m archie.demo --obsidian
 
 ## Immediate next step
 
-Bridge the pack's structured events into the Python telemetry stream, then attach bounded first-person frame capture to Obsidian.
+Record synchronized expert trajectories from the verified physical builder, then introduce the first learned construction policy without blocking continued deterministic validation.
