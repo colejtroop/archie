@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Objective Selector V0 neural inference physically built and verified a 3×3 wall in Minecraft Preview on 2026-09-23.
+The first Vision-Fused Policy V1 checkpoint is trained with safe inheritance from Objective Selector V0. It is vision-sensitive and perfect on the initial held-out rainy episode, while live fused-policy control and privileged-input ablation remain unverified.
 
 ## What works
 
@@ -12,7 +12,7 @@ Objective Selector V0 neural inference physically built and verified a 3×3 wall
 - Optional survival fields from the first agent-state schema
 - Sampled/bounded vision records with synchronized privileged labels
 - Native Obsidian brain graph summarizes the live policy path with color-coded objective, state, learned features, decision, and action nodes
-- Sixteen focused tests pass on a portable Python 3.13.7 runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
+- Twenty-two focused tests pass on a portable Python runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
 - Packageable Preview behavior pack spawns a `SimulatedPlayer`, navigates, places via inventory interaction, observes the result, and emits structured chat telemetry
 - Live Preview run completed with `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` (`exact_completion: true`, one correct block, zero missing blocks)
 - Live Preview multi-block run physically built and verified a complete 3×3 stone wall through nine player-driven placements
@@ -24,6 +24,12 @@ Objective Selector V0 neural inference physically built and verified a 3×3 wall
 - An opt-in Preview camera mirror and bounded Windows frame sampler are ready for first-person capture; camera control remains off by default and clears at episode end
 - Visual Encoder V0 prerequisites are implemented: labeled-frame dataset loading, a 69,965-parameter CNN with a 128-dimensional embedding, progress/action/placement heads, masked multi-task loss, and checkpoint training
 - A first 20-frame clean subset completed end-to-end visual smoke training (loss 4.064 → 1.622); this validates the pipeline only, not visual generalization
+- Visual training now crops the Preview debug strip and holds out entire episodes rather than leaking temporally adjacent frames across the split
+- Vision-fused Policy V1 initializes with exactly the proven privileged logits while retaining a live gradient into its gated visual residual
+- The physical test fixture is offset from the observer and Archie approaches from the working side, preventing the human avatar from blocking its spawn path
+- Desktop capture is explicitly run with interactive-session access; failures now report why frames are being skipped instead of silently producing an empty dataset
+- Three clean Preview episodes produced 107 retained frames across night, clear daylight, and rain; the rainy episode was held out in full
+- Vision-Fused Policy V1 retained 100% validity-masked accuracy on 38 held-out actions; real pixels changed logits by 0.329 on average while zero-image ablation left decisions unchanged
 
 ## Decisions
 
@@ -33,6 +39,7 @@ Objective Selector V0 neural inference physically built and verified a 3×3 wall
 - Treat privileged state as V0/V1 ground truth and labels, never as the permanent perception contract.
 - Store no raw frames by default. Recording must be enabled, sampled, and capped.
 - Keep learned scope explicit: Objective Selector V0 chooses the next supported blueprint cell; it does not yet control navigation, placement, or visual perception.
+- Freeze the verified privileged selector during initial fusion; vision contributes through a gated residual that is exactly zero at initialization.
 
 ## Commands
 
@@ -48,4 +55,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Collect multiple clean fullscreen episodes across varied position, lighting, and weather, including failure/repair outcomes; split evaluation by episode before any visual-policy fusion claim.
+Add a live inference bridge for Vision-Fused Policy V1, verify one physical build with fusion enabled, then evaluate controlled privileged-input corruption/ablation.

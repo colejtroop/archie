@@ -17,6 +17,7 @@ const WALL_HEIGHT = 3;
 const MAX_ATTEMPTS = 3;
 const MOVE_TICKS = 40;
 const VERIFY_TICKS = 10;
+const VISION_SETTLE_TICKS = 240;
 const POLICY_WIDTH = 5;
 const COMPLETE_ACTION = 25;
 
@@ -152,8 +153,9 @@ function startPhysicalBuild(source) {
   disconnectActivePlayer();
 
   const dimension = source.dimension;
-  const origin = blockPosition(source.location);
-  const start = add(origin, -3, 0, 0);
+  // Keep the observing player outside Archie's spawn-to-wall navigation path.
+  const origin = add(blockPosition(source.location), 4, 0, 0);
+  const start = add(origin, 1, 0, 4);
   const targets = new Map();
   for (let y = 0; y < WALL_HEIGHT; y += 1) {
     for (let x = 0; x < WALL_WIDTH; x += 1) {
@@ -206,6 +208,7 @@ function startPhysicalBuild(source) {
       completion: 0,
       correct: 0,
       missing: targets.size,
+      built_actions: [],
     });
   } catch (error) {
     emit("EPISODE_FAILED", { stage: "spawn", error: String(error) });
@@ -221,14 +224,19 @@ function startPhysicalBuild(source) {
 
   function comparison() {
     let correct = 0;
-    for (const task of targets.values()) {
-      if (dimension.getBlock(task.target)?.typeId === BLOCK_TYPE) correct += 1;
+    const builtActions = [];
+    for (const [action, task] of targets.entries()) {
+      if (dimension.getBlock(task.target)?.typeId === BLOCK_TYPE) {
+        correct += 1;
+        builtActions.push(action);
+      }
     }
     return {
       correct_blocks: correct,
       missing_blocks: targets.size - correct,
       completion: correct / targets.size,
       exact_completion: correct === targets.size,
+      built_actions: builtActions,
     };
   }
 
@@ -263,6 +271,7 @@ function startPhysicalBuild(source) {
         correct: state.correct_blocks,
         missing: state.missing_blocks,
         current_target: task.target,
+        built_actions: state.built_actions,
       });
       system.runTimeout(buildNextTarget, 2);
       return;
@@ -341,7 +350,8 @@ function startPhysicalBuild(source) {
     system.runTimeout(() => placeTarget(decision.action, 1), MOVE_TICKS);
   }
 
-  buildNextTarget();
+  // Let transient command/join chat fade before a labeled vision build.
+  system.runTimeout(buildNextTarget, visionPlayer ? VISION_SETTLE_TICKS : 0);
 }
 
 system.afterEvents.scriptEventReceive.subscribe((event) => {

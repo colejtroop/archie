@@ -20,6 +20,8 @@ archie-demo = "archie.demo:main"
 archie-collect = "archie.collector:main"
 archie-train-policy = "archie.train_policy:main"
 archie-train-vision = "archie.train_visual_encoder:main"
+archie-train-fused-policy = "archie.train_fused_policy:main"
+archie-evaluate-fused-policy = "archie.evaluate_fused_policy:main"
 archie-neural-graph = "archie.neural_graph:main"
 
 [tool.setuptools.packages.find]

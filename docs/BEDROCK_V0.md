@@ -43,12 +43,12 @@ Put Minecraft Preview in fullscreen and keep it foreground for the entire run, t
 /scriptevent archie:start
 ```
 
-The camera follows Archie's simulated head, hides the HUD during capture, suppresses in-game progress messages to prevent label leakage, and automatically clears when the episode ends. The recorder skips the first six seconds so command confirmations can fade. `/scriptevent archie:vision_off` always clears the issuing player's camera and restores the HUD, including after an episode. JPEG frames and synchronized privileged labels are written under `data/generated/vision/preview` and remain excluded from Git.
+The camera follows Archie's simulated head, hides the HUD during capture, suppresses in-game progress messages to prevent label leakage, and automatically clears when the episode ends. Vision-armed builds pause for 12 seconds after spawn so transient command and join messages can fade before construction begins; non-vision builds start immediately. `/scriptevent archie:vision_off` always clears the issuing player's camera and restores the HUD, including after an episode. JPEG frames and synchronized privileged labels are written under `data/generated/vision/preview` and remain excluded from Git.
 
 Expected behavior:
 
 1. Chat reports a concise build-start summary; full structured events go to the Preview content log with the `[ArchieTelemetry]` prefix.
-2. A player named **Archie** appears three blocks away.
+2. A player named **Archie** appears beside a test fixture offset from the observing player, keeping the human avatar out of its navigation path.
 3. The pack loads a 3×3 stone-wall blueprint and runs Objective Selector V0 inference against the current built-state mask.
 4. For each neural-policy target, Archie moves into reach, selects stone, and physically uses it on the supporting block.
 5. Each placement is observed and retried up to three times when verification fails.

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.wintypes
+import sys
 from dataclasses import dataclass, field
 from io import BytesIO
 from threading import Event as StopEvent
@@ -39,7 +40,11 @@ class LiveFrameLabels:
                     "block": payload.get("block"),
                     "total_blocks": payload.get("total_blocks"),
                 }
-                self.world = {"origin": payload.get("origin")}
+                self.world = {
+                    "origin": payload.get("origin"),
+                    # Stable across recorder restarts, unlike the local counter.
+                    "episode": f"{event.timestamp}:{payload.get('bedrock_tick', 'unknown')}",
+                }
                 self.current_target = None
                 self.current_action = "START"
                 self.placement_result = None
@@ -50,6 +55,7 @@ class LiveFrameLabels:
                     "completion": payload.get("completion"),
                     "correct": payload.get("correct"),
                     "missing": payload.get("missing"),
+                    "built_actions": list(payload.get("built_actions") or []),
                 })
             elif event.event_type is EventType.OBJECTIVE_SELECTED:
                 self.current_target = dict(payload.get("target") or {})
@@ -101,23 +107,42 @@ def find_preview_client() -> tuple[int, int, int, int]:
         finally:
             kernel32.CloseHandle(handle)
 
+    def is_preview_window(hwnd) -> bool:
+        length = user32.GetWindowTextLengthW(hwnd)
+        title = ctypes.create_unicode_buffer(length + 1)
+        user32.GetWindowTextW(hwnd, title, length + 1)
+        if "minecraft preview" in title.value.lower() or "minecraftwindowsbeta" in process_path(hwnd):
+            return True
+        found = False
+
+        @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+        def child_callback(child, _lparam):
+            nonlocal found
+            if "minecraftwindowsbeta" in process_path(child):
+                found = True
+                return False
+            return True
+
+        user32.EnumChildWindows(hwnd, child_callback, 0)
+        return found
+
     @ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
     def callback(hwnd, _lparam):
         if not user32.IsWindowVisible(hwnd):
             return True
-        length = user32.GetWindowTextLengthW(hwnd)
-        title = ctypes.create_unicode_buffer(length + 1)
-        user32.GetWindowTextW(hwnd, title, length + 1)
-        path = process_path(hwnd)
-        if "minecraft preview" in title.value.lower() or "minecraftwindowsbeta" in path:
+        if is_preview_window(hwnd):
             matches.append(hwnd)
         return True
 
-    user32.EnumWindows(callback, 0)
+    foreground = user32.GetForegroundWindow()
+    if foreground and is_preview_window(foreground):
+        matches.append(foreground)
+    else:
+        user32.EnumWindows(callback, 0)
     if not matches:
         raise RuntimeError("A visible Minecraft Preview window was not found")
     hwnd = matches[0]
-    if user32.GetForegroundWindow() != hwnd:
+    if foreground != hwnd:
         raise RuntimeError("Minecraft Preview must be the foreground window for uncontaminated capture")
     rect = ctypes.wintypes.RECT()
     user32.GetClientRect(hwnd, ctypes.byref(rect))
@@ -140,6 +165,7 @@ def capture_preview(
     interval = 1.0 / fps
     active_since: float | None = None
     active_episode = -1
+    last_capture_error: str | None = None
     while not stop.is_set():
         active, episode, frame_labels = labels.snapshot()
         if not active:
@@ -153,7 +179,12 @@ def capture_preview(
                 continue
             try:
                 bounds = find_preview_client()
-            except RuntimeError:
+                last_capture_error = None
+            except RuntimeError as error:
+                message = str(error)
+                if message != last_capture_error:
+                    print(f"Vision capture waiting: {message}", file=sys.stderr, flush=True)
+                    last_capture_error = message
                 stop.wait(interval)
                 continue
             image = ImageGrab.grab(bbox=bounds, all_screens=True)

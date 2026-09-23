@@ -21,6 +21,7 @@ class LiveFrameLabelsTests(unittest.TestCase):
             "completion": 0,
             "correct": 0,
             "missing": 9,
+            "built_actions": [0, 1],
         }, "now"))
         labels.consume(Event(EventType.OBJECTIVE_SELECTED, {
             "target": {"x": 4, "y": 2, "z": 3},
@@ -33,6 +34,8 @@ class LiveFrameLabelsTests(unittest.TestCase):
         self.assertEqual(snapshot.survival, {"health": 20, "hunger": 20})
         self.assertEqual(snapshot.current_action, "POLICY_ACTION_0")
         self.assertEqual(snapshot.current_target["x"], 4)
+        self.assertEqual(snapshot.world["built_actions"], [0, 1])
+        self.assertTrue(snapshot.world["episode"].endswith(":unknown"))
         labels.consume(Event(EventType.EPISODE_COMPLETED, {}, "now"))
         self.assertFalse(labels.snapshot()[0])
 

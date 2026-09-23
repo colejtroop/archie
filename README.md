@@ -20,6 +20,8 @@ Archie is a research platform for an embodied neural agent that physically const
 - PyTorch Objective Selector V0 trained by behavioral cloning across 15,024 valid wall states; 100% validity-masked held-out accuracy
 - Live Preview telemetry can drive the Obsidian brain graph and simultaneously record a crash-safe training trajectory
 - Visual Encoder V0 training pipeline: compact CNN, 128-dimensional embedding, and masked progress/action/placement supervision
+- Vision-fused V1 policy scaffold: the proven privileged selector is frozen as a safe base while a gated visual residual learns from episode-held-out data
+- First trained fused checkpoint: 100% masked accuracy on 38 actions from an entirely held-out rainy episode, with measurable image-conditioned logit changes and no inherited-policy regression
 
 ### Experimental
 
@@ -27,7 +29,7 @@ Archie is a research platform for an embodied neural agent that physically const
 
 ### Planned
 
-- Windows first-person frame capture connected to `VisionRecorder`
+- Multi-episode visual dataset covering varied lighting, weather, viewpoints, and placement failures
 - Deterministic scaffolding and repair
 - Expert trajectories and a PyTorch visual/construction policy
 
@@ -50,14 +52,14 @@ Telemetry is written to `artifacts/v0-telemetry.jsonl` and excluded from Git.
 
 `Blueprint` is translated to absolute target voxels. `DeterministicBuilder` chooses one target at a time, asks an `Environment` to move/select/place, observes the block, and verifies it. The environment boundary keeps Minecraft implementation details out of construction and future ML code.
 
-Vision is a parallel observation stream. Each real JPEG/PNG frame can be synchronized with privileged player, blueprint, world, survival, target, action, and placement-result labels. Recording is sampled and bounded; privileged labels are training/debug ground truth, not a permanent policy dependency.
+Vision is a parallel observation stream. Each real JPEG/PNG frame is synchronized with privileged player, blueprint, world, survival, target, action, and placement-result labels. Recording is opt-in, sampled, and bounded; privileged labels are training/debug ground truth, not a permanent policy dependency. Training splits whole episodes so adjacent frames cannot leak into validation, and removes Preview's top debug strip before pixels reach the model.
 
 The intended live Bedrock implementation uses Microsoft's experimental GameTest `SimulatedPlayer`. This is Bedrock-native but currently requires preview/experimental support; the stable player API can observe input but cannot synthesize full player movement and item use.
 
 ## Roadmap
 
-1. Capture bounded first-person Preview frames synchronized with the retained physical trajectory.
-2. Add a PyTorch visual encoder fused with privileged state.
+1. Run the fused PyTorch policy in the live Preview control path and verify a physical build.
+2. Measure controlled privileged-input corruption and ablation while preserving safety masks.
 3. Add deterministic scaffolding and repair curricula.
-4. Progressively ablate privileged inputs while preserving physical build performance.
+4. Expand visual data across structures, viewpoints, mobs, failures, and worlds.
 
