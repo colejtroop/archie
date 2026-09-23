@@ -19,6 +19,7 @@ Archie is a research platform for an embodied neural agent that physically const
 - Headless expert-trajectory collection from Preview content logs, with concise in-game messages
 - PyTorch Objective Selector V0 trained by behavioral cloning across 15,024 valid wall states; 100% validity-masked held-out accuracy
 - Live Preview telemetry can drive the Obsidian brain graph and simultaneously record a crash-safe training trajectory
+- Visual Encoder V0 training pipeline: compact CNN, 128-dimensional embedding, and masked progress/action/placement supervision
 
 ### Experimental
 

@@ -9,6 +9,8 @@ import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
 import { OBJECTIVE_SELECTOR_V0 } from "./policy_weights.js";
 
 const COMMAND = "archie:start";
+const VISION_ON_COMMAND = "archie:vision_on";
+const VISION_OFF_COMMAND = "archie:vision_off";
 const BLOCK_TYPE = "minecraft:stone";
 const WALL_WIDTH = 3;
 const WALL_HEIGHT = 3;
@@ -19,6 +21,43 @@ const POLICY_WIDTH = 5;
 const COMPLETE_ACTION = 25;
 
 let activePlayer;
+let visionPlayer;
+let visionCameraRun;
+
+function stopVisionCamera(requestingPlayer) {
+  if (visionCameraRun !== undefined) {
+    system.clearRun(visionCameraRun);
+    visionCameraRun = undefined;
+  }
+  const playerToClear = requestingPlayer ?? visionPlayer;
+  if (playerToClear) {
+    try {
+      playerToClear.runCommand("camera @s clear");
+      playerToClear.runCommand("hud @s reset");
+      playerToClear.sendMessage("§5[Archie]§r Vision camera disabled.");
+    } catch {
+      // The viewing player may have disconnected.
+    }
+  }
+  visionPlayer = undefined;
+}
+
+function startVisionCamera() {
+  if (!visionPlayer || !activePlayer || visionCameraRun !== undefined) return;
+  visionCameraRun = system.runInterval(() => {
+    if (!visionPlayer || !activePlayer) return;
+    try {
+      const location = activePlayer.location;
+      const rotation = activePlayer.getRotation();
+      visionPlayer.runCommand(
+        `camera @s set minecraft:free pos ${location.x} ${location.y + 1.62} ${location.z} rot ${rotation.x} ${rotation.y}`,
+      );
+    } catch (error) {
+      emit("EPISODE_FAILED", { stage: "vision_camera", error: String(error) });
+      stopVisionCamera();
+    }
+  }, 2);
+}
 
 function dense(input, layer, relu) {
   return layer.weights.map((row, outputIndex) => {
@@ -78,6 +117,10 @@ function emit(eventType, payload = {}) {
   ) {
     console.info(`[ArchieTelemetryFlush] ${".".repeat(4096)}`);
   }
+
+  // Do not leak privileged progress labels into pixels retained for vision
+  // training. Structured telemetry remains available out of band.
+  if (visionPlayer) return;
 
   if (eventType === "EPISODE_STARTED") {
     world.sendMessage(`§5[Archie]§r Starting ${payload.blueprint} with §dObjective Selector V0§r (${payload.total_blocks} blocks).`);
@@ -141,6 +184,7 @@ function startPhysicalBuild(source) {
     block: BLOCK_TYPE,
     total_blocks: targets.size,
     policy: "objective-selector-v0",
+    vision_capture: visionPlayer !== undefined,
   });
   emit("BLUEPRINT_LOADED", {
     name: `${WALL_WIDTH}x${WALL_HEIGHT}-wall`,
@@ -154,6 +198,7 @@ function startPhysicalBuild(source) {
       GameMode.Creative,
     );
     activePlayer.setItem(new ItemStack(BLOCK_TYPE, 64), 0, true);
+    startVisionCamera();
     emit("STATE_UPDATED", {
       player: activePlayer.location,
       health: activePlayer.getComponent("minecraft:health")?.currentValue ?? null,
@@ -195,6 +240,7 @@ function startPhysicalBuild(source) {
       incorrect_blocks: 0,
       extra_blocks: 0,
     });
+    system.runTimeout(stopVisionCamera, 1);
   }
 
   function verifyPlacement(action, attempt) {
@@ -299,6 +345,23 @@ function startPhysicalBuild(source) {
 }
 
 system.afterEvents.scriptEventReceive.subscribe((event) => {
+  if (event.id === VISION_OFF_COMMAND) {
+    if (event.sourceEntity?.typeId === "minecraft:player") {
+      stopVisionCamera(event.sourceEntity);
+    } else {
+      stopVisionCamera();
+    }
+    return;
+  }
+  if (event.id === VISION_ON_COMMAND) {
+    if (!event.sourceEntity || event.sourceEntity.typeId !== "minecraft:player") return;
+    stopVisionCamera();
+    visionPlayer = event.sourceEntity;
+    visionPlayer.runCommand("hud @s hide all");
+    visionPlayer.sendMessage("§5[Archie]§r Vision camera armed for the next build. Run §f/scriptevent archie:vision_off§r to cancel.");
+    startVisionCamera();
+    return;
+  }
   if (event.id !== COMMAND) return;
   if (!event.sourceEntity || event.sourceEntity.typeId !== "minecraft:player") {
     emit("EPISODE_FAILED", { stage: "command", error: "Run the command as a player." });

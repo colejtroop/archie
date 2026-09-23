@@ -21,6 +21,9 @@ Objective Selector V0 neural inference physically built and verified a 3×3 wall
 - Objective Selector V0 weights export to Bedrock JavaScript; live Preview inference selected policy actions `0, 1, 2, 5, 6, 7, 10, 11, 12` and completed all nine physical placements with zero failures or retries
 - The verified neural Preview episode is recoverable from the content log as a 58-event JSONL trajectory
 - Live Preview content-log telemetry now drives the simplified Obsidian brain graph while recording the same episode
+- An opt-in Preview camera mirror and bounded Windows frame sampler are ready for first-person capture; camera control remains off by default and clears at episode end
+- Visual Encoder V0 prerequisites are implemented: labeled-frame dataset loading, a 69,965-parameter CNN with a 128-dimensional embedding, progress/action/placement heads, masked multi-task loss, and checkpoint training
+- A first 20-frame clean subset completed end-to-end visual smoke training (loss 4.064 → 1.622); this validates the pipeline only, not visual generalization
 
 ## Decisions
 
@@ -45,4 +48,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Human-verify the live Preview-to-Obsidian graph connection, then add synchronized first-person visual capture without removing privileged V0 labels.
+Collect multiple clean fullscreen episodes across varied position, lighting, and weather, including failure/repair outcomes; split evaluation by episode before any visual-policy fusion claim.

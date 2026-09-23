@@ -28,6 +28,23 @@ Stand on open, flat ground and enter:
 /scriptevent archie:start
 ```
 
+### Opt-in first-person capture
+
+Archie's camera mirror is always off by default. To prepare a bounded, labeled capture run:
+
+```powershell
+archie-neural-graph --vault "C:\path\to\your\ObsidianVault" --capture-vision --vision-fps 2 --vision-max-frames 300
+```
+
+Put Minecraft Preview in fullscreen and keep it foreground for the entire run, then arm the camera and start the build. Capture pauses rather than saving contaminated frames whenever Preview is not foreground.
+
+```text
+/scriptevent archie:vision_on
+/scriptevent archie:start
+```
+
+The camera follows Archie's simulated head, hides the HUD during capture, suppresses in-game progress messages to prevent label leakage, and automatically clears when the episode ends. The recorder skips the first six seconds so command confirmations can fade. `/scriptevent archie:vision_off` always clears the issuing player's camera and restores the HUD, including after an episode. JPEG frames and synchronized privileged labels are written under `data/generated/vision/preview` and remain excluded from Git.
+
 Expected behavior:
 
 1. Chat reports a concise build-start summary; full structured events go to the Preview content log with the `[ArchieTelemetry]` prefix.

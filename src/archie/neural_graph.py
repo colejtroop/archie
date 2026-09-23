@@ -4,15 +4,17 @@ import argparse
 import json
 import shutil
 from pathlib import Path
-from threading import Event
+from threading import Event, Thread
 from time import sleep
 
 from .bedrock_bridge import ContentLogBridge
 from .collector import TrajectoryWriter, default_content_log_directory, default_output
 from .policy import create_objective_selector, select_action, valid_actions
 from .policy_data import COMPLETE_ACTION, MAX_WIDTH, masks
+from .preview_vision import LiveFrameLabels, capture_preview
 from .telemetry import Event as TelemetryEvent
 from .telemetry import EventType, Telemetry
+from .vision import RecordingPolicy, VisionRecorder
 
 
 class ObsidianNeuralGraph:
@@ -210,6 +212,11 @@ def main() -> None:
     parser.add_argument("--source", choices=("live", "demo"), default="live")
     parser.add_argument("--content-log-directory", type=Path, default=None)
     parser.add_argument("--trajectory-output", type=Path, default=None)
+    parser.add_argument("--capture-vision", action="store_true")
+    parser.add_argument("--vision-fps", type=float, default=2.0)
+    parser.add_argument("--vision-max-frames", type=int, default=300)
+    parser.add_argument("--vision-warmup", type=float, default=6.0)
+    parser.add_argument("--vision-output", type=Path, default=Path("data/generated/vision/preview"))
     args = parser.parse_args()
     graph = ObsidianNeuralGraph(args.vault, args.checkpoint)
     graph.materialize()
@@ -222,17 +229,32 @@ def main() -> None:
         else:
             output = args.trajectory_output or default_output()
             writer = TrajectoryWriter(output)
+            live_labels = LiveFrameLabels()
 
             def sink(event: TelemetryEvent) -> None:
                 writer(event)
                 graph.consume(event)
+                live_labels.consume(event)
 
             telemetry = Telemetry(sink=sink)
             directory = args.content_log_directory or default_content_log_directory()
             bridge = ContentLogBridge(telemetry, directory)
             bridge.start()
+            if args.capture_vision:
+                recorder = VisionRecorder(
+                    RecordingPolicy(True, sample_every=1, max_frames=args.vision_max_frames, persist_images=True),
+                    args.vision_output,
+                )
+                Thread(
+                    target=capture_preview,
+                    args=(recorder, live_labels, stop, args.vision_fps, args.vision_warmup),
+                    daemon=True,
+                    name="archie-preview-vision",
+                ).start()
             print(f"Following live Preview telemetry: {directory}")
             print(f"Recording trajectory: {output}")
+            if args.capture_vision:
+                print(f"Recording bounded first-person frames: {args.vision_output}")
             while True:
                 sleep(1)
     except KeyboardInterrupt:

@@ -13,11 +13,13 @@ dependencies = []
 
 [project.optional-dependencies]
 ml = ["torch>=2.6"]
+vision = ["Pillow>=11"]
 
 [project.scripts]
 archie-demo = "archie.demo:main"
 archie-collect = "archie.collector:main"
 archie-train-policy = "archie.train_policy:main"
+archie-train-vision = "archie.train_visual_encoder:main"
 archie-neural-graph = "archie.neural_graph:main"
 
 [tool.setuptools.packages.find]
