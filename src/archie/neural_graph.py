@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import shutil
 from pathlib import Path
 from threading import Event, Thread
 from time import sleep
@@ -33,6 +32,8 @@ class ObsidianNeuralGraph:
         self.activations: dict[str, list[float]] = {}
         self.built_actions: set[int] = set()
         self.current_action: int | None = None
+        self.current_target_note: str | None = None
+        self.placement_note: str | None = None
         self.model[1].register_forward_hook(self._capture("features_1"))
         self.model[3].register_forward_hook(self._capture("features_2"))
 
@@ -59,11 +60,26 @@ class ObsidianNeuralGraph:
     def materialize(self) -> None:
         old_root = self.vault / "Archie" / "Neural Network"
         if old_root.exists():
-            shutil.rmtree(old_root)
-        if self.root.exists():
-            shutil.rmtree(self.root)
-        self.root.mkdir(parents=True)
+            for path in old_root.glob("*.md"):
+                if self._is_generated(path):
+                    path.unlink()
+        self.root.mkdir(parents=True, exist_ok=True)
+        for path in self.root.glob("*.md"):
+            if self._is_generated(path):
+                path.unlink()
         self._note("Objective - build 3x3 wall", "objective", [], "The construction objective Archie is pursuing.")
+        self._note(
+            "Architecture - objective selector",
+            "model",
+            ["Objective - build 3x3 wall"],
+            "Chooses the next supported blueprint cell from blueprint and privileged built-state masks.",
+        )
+        self._note(
+            "Architecture - placement controller",
+            "model",
+            ["Architecture - objective selector"],
+            "Executes each objective through approach, place, verify, reposition, retry, advance, or abort.",
+        )
         self._configure_graph()
 
     def _configure_graph(self) -> None:
@@ -104,8 +120,15 @@ class ObsidianNeuralGraph:
 
     def _clear_live_notes(self) -> None:
         for path in self.root.glob("*.md"):
-            if not path.name.startswith("Objective -"):
+            if self._is_generated(path) and not path.name.startswith(("Objective -", "Architecture -")):
                 path.unlink()
+
+    @staticmethod
+    def _is_generated(path: Path) -> bool:
+        try:
+            return "archie-brain" in path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError):
+            return False
 
     @staticmethod
     def _summary(values: list[float]) -> str:
@@ -126,7 +149,7 @@ class ObsidianNeuralGraph:
         objective = "Objective - build 3x3 wall"
         blueprint_name = "Blueprint - 9 stone blocks"
         state_name = f"Observed build - {built_count} of 9 complete"
-        feature_1 = "Learned visual-spatial features"
+        feature_1 = "Learned privileged-state features"
         feature_2 = "Learned construction features"
         valid_name = f"Valid placements - {len(choices)} choices"
 
@@ -146,6 +169,8 @@ class ObsidianNeuralGraph:
             x, y = action % MAX_WIDTH, action // MAX_WIDTH
             score = float(logits[action].item())
             target_name = f"Decision - place stone at x{x} y{y}"
+            self.current_target_note = target_name
+            self.placement_note = target_name
             self._note(target_name, "decision", [valid_name], f"Selected policy logit: {score:.3f}.", True)
             self._note("Action - place block", "action", [target_name], "Dispatch the selected placement to Minecraft.")
         return action
@@ -180,13 +205,16 @@ class ObsidianNeuralGraph:
             decision = str(event.payload.get("decision", "UNKNOWN")).lower()
             reason = str(event.payload.get("reason", "No reason reported."))
             target = event.payload.get("target")
+            note = f"Placement controller - {decision}"
+            parent = self.placement_note or self.current_target_note or "Architecture - placement controller"
             self._note(
-                f"Placement controller - {decision}",
+                note,
                 "action",
-                ["Action - place block"],
+                [parent, "Architecture - placement controller"],
                 f"Target: {target}. Reason: {reason}",
                 True,
             )
+            self.placement_note = note
             return
         if event.event_type is EventType.BLOCK_PLACEMENT_SUCCEEDED and self.current_action is not None:
             self.built_actions.add(self.current_action)

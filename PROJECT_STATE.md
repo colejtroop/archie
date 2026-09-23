@@ -11,7 +11,7 @@ The first Vision-Fused Policy V1 checkpoint is trained with safe inheritance fro
 - Placement retries, comparison, metrics, structured JSONL telemetry
 - Optional survival fields from the first agent-state schema
 - Sampled/bounded vision records with synchronized privileged labels
-- Native Obsidian brain graph summarizes the live policy path with color-coded objective, state, learned features, decision, and action nodes
+- Native Obsidian brain graph accurately distinguishes the active privileged objective selector from the offline visual model and traces the live placement-controller branch sequence
 - Twenty-two focused tests pass on a portable Python runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
 - Packageable Preview behavior pack spawns a `SimulatedPlayer`, navigates, places via inventory interaction, observes the result, and emits structured chat telemetry
 - Live Preview run completed with `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` (`exact_completion: true`, one correct block, zero missing blocks)

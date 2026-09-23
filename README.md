@@ -12,7 +12,7 @@ Archie is a research platform for an embodied neural agent that physically const
 - Retry handling, exact final verification, and structured telemetry
 - Survival-ready agent state with optional health, hunger, threats, and time
 - Bounded, configurable first-person frame records synchronized with privileged labels
-- Native Obsidian brain graph with color-coded objective, state, learned-feature, decision, and action nodes
+- Native Obsidian brain graph with color-coded live objective selection, honest privileged-state features, and sequential placement-controller branches
 - Dependency-free simulation demo and focused unit tests
 - Verified Minecraft Preview first-block run: Archie physically moved, placed stone, observed it, and reported exact completion
 - Verified Minecraft Preview 3×3 wall run: nine physical placements with per-block observation, retries, progress, and final structure verification
