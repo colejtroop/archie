@@ -17,7 +17,7 @@ Archie is a research platform for an embodied neural agent that physically const
 
 ### Experimental
 
-- Bedrock's experimental GameTest `SimulatedPlayer` is the selected live body. It supports actual navigation, looking, inventory selection, and using blocks rather than directly writing the target structure.
+- A packageable Bedrock Preview behavior pack uses GameTest `SimulatedPlayer` for actual navigation, looking, inventory selection, placement, and observation. It is locally validated but still requires its first in-game run. See [`docs/BEDROCK_V0.md`](docs/BEDROCK_V0.md).
 
 ### Planned
 
@@ -51,8 +51,8 @@ The intended live Bedrock implementation uses Microsoft's experimental GameTest 
 
 ## Roadmap
 
-1. Run the focused core tests on Python 3.11+.
-2. Add and install the behavior pack; verify one physical Bedrock placement.
+1. Import the V0 behavior pack into a compatible Minecraft Preview world and verify one physical placement.
+2. Stream the pack's structured events to the Python telemetry transport.
 3. Stream Bedrock state and Windows first-person capture into Archie/Obsidian.
 4. Complete the tiny-wall live demo, then add expert trajectory recording.
 5. Train a PyTorch visual encoder fused with privileged state, progressively ablating privileged inputs.

@@ -42,6 +42,7 @@ trajectories/
 node_modules/
 dist/
 build/
+*.mcpack
 
 # Local Bedrock worlds, packs, server binaries, and runtime state.
 worlds/

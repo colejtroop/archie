@@ -9,7 +9,7 @@
 
 ## Current milestone
 
-V0 foundation: the deterministic construction loop is implemented and tested. Live Minecraft Bedrock execution is not connected yet.
+V0 first-block candidate: the deterministic construction loop is tested, and a packageable Minecraft Preview behavior pack is ready for its first in-game run.
 
 ## Latest verified run
 
@@ -33,14 +33,15 @@ V0 foundation: the deterministic construction loop is implemented and tested. Li
 - Structured construction and survival telemetry
 - Bounded first-person vision recording with privileged labels
 - Live browser-based Obsidian dashboard
+- Bedrock Preview pack using a physical GameTest `SimulatedPlayer`
 
 ## Honest runtime state
 
 - **Learned model:** not active
 - **Live Minecraft frame source:** not connected
-- **Bedrock body:** planned around experimental GameTest `SimulatedPlayer`
+- **Bedrock body:** implemented around experimental GameTest `SimulatedPlayer`; in-game validation pending
 
 ## Immediate next step
 
-Implement and install the smallest Bedrock behavior pack that navigates a simulated player, places one physical block with an inventory action, observes the resulting block type, and reports verification to Archie.
+Install a compatible Minecraft Preview build, import `Archie-V0.mcpack`, and run `/scriptevent archie:start` in an experimental flat test world.
 
