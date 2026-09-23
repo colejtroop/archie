@@ -5,9 +5,14 @@ import json
 import shutil
 from pathlib import Path
 from threading import Event
+from time import sleep
 
+from .bedrock_bridge import ContentLogBridge
+from .collector import TrajectoryWriter, default_content_log_directory, default_output
 from .policy import create_objective_selector, select_action, valid_actions
 from .policy_data import COMPLETE_ACTION, MAX_WIDTH, masks
+from .telemetry import Event as TelemetryEvent
+from .telemetry import EventType, Telemetry
 
 
 class ObsidianNeuralGraph:
@@ -24,6 +29,8 @@ class ObsidianNeuralGraph:
         self.model.load_state_dict(saved["state_dict"])
         self.model.eval()
         self.activations: dict[str, list[float]] = {}
+        self.built_actions: set[int] = set()
+        self.current_action: int | None = None
         self.model[1].register_forward_hook(self._capture("features_1"))
         self.model[3].register_forward_hook(self._capture("features_2"))
 
@@ -141,6 +148,47 @@ class ObsidianNeuralGraph:
             self._note("Action - place block", "action", [target_name], "Dispatch the selected placement to Minecraft.")
         return action
 
+    def consume(self, event: TelemetryEvent) -> None:
+        """Update the graph from a real Minecraft Preview telemetry event."""
+        if event.event_type is EventType.EPISODE_STARTED:
+            self.built_actions.clear()
+            self.current_action = None
+            self.step([0, 0, 0])
+            return
+        if event.event_type is EventType.OBJECTIVE_SELECTED:
+            raw_action = event.payload.get("policy_action")
+            if isinstance(raw_action, int):
+                self.current_action = raw_action
+            heights = [0, 0, 0]
+            for action in self.built_actions:
+                x, y = action % MAX_WIDTH, action // MAX_WIDTH
+                if x < len(heights):
+                    heights[x] = max(heights[x], y + 1)
+            predicted = self.step(heights)
+            if self.current_action is not None and predicted != self.current_action:
+                self._note(
+                    "Warning - policy mismatch",
+                    "action",
+                    ["Learned construction features"],
+                    f"Python selected {predicted}; Preview selected {self.current_action}.",
+                    True,
+                )
+            return
+        if event.event_type is EventType.BLOCK_PLACEMENT_SUCCEEDED and self.current_action is not None:
+            self.built_actions.add(self.current_action)
+            heights = [0, 0, 0]
+            for action in self.built_actions:
+                x, y = action % MAX_WIDTH, action // MAX_WIDTH
+                if x < len(heights):
+                    heights[x] = max(heights[x], y + 1)
+            self.step(heights)
+            return
+        if event.event_type is EventType.EPISODE_COMPLETED:
+            self.step([3, 3, 3])
+            return
+        if event.event_type is EventType.EPISODE_FAILED:
+            self._note("Build failed", "action", ["Learned construction features"], str(event.payload), True)
+
     def run_demo(self, stop: Event) -> None:
         heights = [0, 0, 0]
         while not stop.is_set():
@@ -159,6 +207,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Drive Archie's model through Obsidian Graph View")
     parser.add_argument("--vault", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, default=Path("checkpoints/objective-selector-v0.pt"))
+    parser.add_argument("--source", choices=("live", "demo"), default="live")
+    parser.add_argument("--content-log-directory", type=Path, default=None)
+    parser.add_argument("--trajectory-output", type=Path, default=None)
     args = parser.parse_args()
     graph = ObsidianNeuralGraph(args.vault, args.checkpoint)
     graph.materialize()
@@ -166,9 +217,28 @@ def main() -> None:
     print("Open Obsidian Graph View. Press Ctrl+C to stop live updates.")
     stop = Event()
     try:
-        graph.run_demo(stop)
+        if args.source == "demo":
+            graph.run_demo(stop)
+        else:
+            output = args.trajectory_output or default_output()
+            writer = TrajectoryWriter(output)
+
+            def sink(event: TelemetryEvent) -> None:
+                writer(event)
+                graph.consume(event)
+
+            telemetry = Telemetry(sink=sink)
+            directory = args.content_log_directory or default_content_log_directory()
+            bridge = ContentLogBridge(telemetry, directory)
+            bridge.start()
+            print(f"Following live Preview telemetry: {directory}")
+            print(f"Recording trajectory: {output}")
+            while True:
+                sleep(1)
     except KeyboardInterrupt:
         stop.set()
+        if args.source == "live":
+            bridge.stop()
 
 
 if __name__ == "__main__":

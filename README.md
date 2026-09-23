@@ -12,12 +12,13 @@ Archie is a research platform for an embodied neural agent that physically const
 - Retry handling, exact final verification, and structured telemetry
 - Survival-ready agent state with optional health, hunger, threats, and time
 - Bounded, configurable first-person frame records synchronized with privileged labels
-- Obsidian live build, agent, event, vision, and honest no-model states
+- Native Obsidian brain graph with color-coded objective, state, learned-feature, decision, and action nodes
 - Dependency-free simulation demo and focused unit tests
 - Verified Minecraft Preview first-block run: Archie physically moved, placed stone, observed it, and reported exact completion
 - Verified Minecraft Preview 3×3 wall run: nine physical placements with per-block observation, retries, progress, and final structure verification
 - Headless expert-trajectory collection from Preview content logs, with concise in-game messages
 - PyTorch Objective Selector V0 trained by behavioral cloning across 15,024 valid wall states; 100% validity-masked held-out accuracy
+- Live Preview telemetry can drive the Obsidian brain graph and simultaneously record a crash-safe training trajectory
 
 ### Experimental
 
@@ -25,7 +26,6 @@ Archie is a research platform for an embodied neural agent that physically const
 
 ### Planned
 
-- Bedrock-to-Python telemetry bridge
 - Windows first-person frame capture connected to `VisionRecorder`
 - Deterministic scaffolding and repair
 - Expert trajectories and a PyTorch visual/construction policy
@@ -38,10 +38,10 @@ Requires Python 3.11+.
 python -m venv .venv
 .venv\Scripts\python -m pip install -e .
 .venv\Scripts\python -m unittest discover -s tests -v
-.venv\Scripts\archie-demo --obsidian
+.venv\Scripts\archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 ```
 
-Open <http://127.0.0.1:8765>. The demo builds a verified 3×3 wall in the embodied simulator. It does not claim to be connected to Minecraft; Obsidian says `NO LIVE FRAME SOURCE CONNECTED` until real capture is attached.
+Open Obsidian's native Graph View, then run the Archie command in Minecraft Preview. The graph follows Preview's content-log telemetry and records the episode under `data/generated/trajectories`. Pass `--source demo` to visualize the trained model without Minecraft.
 
 Telemetry is written to `artifacts/v0-telemetry.jsonl` and excluded from Git.
 
@@ -55,8 +55,8 @@ The intended live Bedrock implementation uses Microsoft's experimental GameTest 
 
 ## Roadmap
 
-1. Integrate the learned objective selector behind the construction policy boundary.
-2. Collect complete physical expert trajectories and bounded first-person frames.
-3. Add a PyTorch visual encoder fused with privileged state.
+1. Capture bounded first-person Preview frames synchronized with the retained physical trajectory.
+2. Add a PyTorch visual encoder fused with privileged state.
+3. Add deterministic scaffolding and repair curricula.
 4. Progressively ablate privileged inputs while preserving physical build performance.
 

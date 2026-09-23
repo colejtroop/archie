@@ -9,7 +9,7 @@ from threading import Lock
 from time import sleep
 from typing import Any
 
-from .bedrock_bridge import BedrockBridge, ContentLogBridge
+from .bedrock_bridge import BedrockBridge, ContentLogBridge, parse_archie_log_line
 from .telemetry import Event, EventType, Telemetry
 
 
@@ -49,6 +49,34 @@ def default_content_log_directory() -> Path:
     if not appdata:
         raise RuntimeError("APPDATA is unavailable; pass --content-log-directory")
     return Path(appdata) / "Minecraft Bedrock Preview" / "logs"
+
+
+def latest_complete_episode(log_path: Path) -> list[tuple[EventType, dict[str, Any]]]:
+    """Return the latest terminal Archie episode from an existing Preview log."""
+    current: list[tuple[EventType, dict[str, Any]]] = []
+    latest: list[tuple[EventType, dict[str, Any]]] = []
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        parsed = parse_archie_log_line(line)
+        if not parsed:
+            continue
+        event_type, payload = parsed
+        if event_type is EventType.EPISODE_STARTED:
+            current = []
+        if current or event_type is EventType.EPISODE_STARTED:
+            current.append((event_type, payload))
+        if event_type in (EventType.EPISODE_COMPLETED, EventType.EPISODE_FAILED) and current:
+            latest = current
+            current = []
+    return latest
+
+
+def import_episode(log_path: Path, output: Path) -> int:
+    writer = TrajectoryWriter(output)
+    telemetry = Telemetry(sink=writer)
+    episode = latest_complete_episode(log_path)
+    for event_type, payload in episode:
+        telemetry.publish(event_type, **payload)
+    return len(episode)
 
 
 def main() -> None:

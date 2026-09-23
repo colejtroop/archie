@@ -68,6 +68,16 @@ function emit(eventType, payload = {}) {
     payload,
   });
   console.info(`[ArchieTelemetry] ${event}`);
+  // Preview buffers content-log writes in chunks. A padded boundary after
+  // decision/state/terminal events keeps the external live debugger current.
+  if (
+    eventType === "OBJECTIVE_SELECTED"
+    || eventType === "STATE_UPDATED"
+    || eventType === "EPISODE_COMPLETED"
+    || eventType === "EPISODE_FAILED"
+  ) {
+    console.info(`[ArchieTelemetryFlush] ${".".repeat(4096)}`);
+  }
 
   if (eventType === "EPISODE_STARTED") {
     world.sendMessage(`§5[Archie]§r Starting ${payload.blueprint} with §dObjective Selector V0§r (${payload.total_blocks} blocks).`);

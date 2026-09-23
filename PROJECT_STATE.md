@@ -11,14 +11,16 @@ Objective Selector V0 neural inference physically built and verified a 3×3 wall
 - Placement retries, comparison, metrics, structured JSONL telemetry
 - Optional survival fields from the first agent-state schema
 - Sampled/bounded vision records with synchronized privileged labels
-- Obsidian dashboard, including ARCHIE VISION and explicit no-model/no-frame states
-- Nine focused tests pass on a portable Python 3.13.7 runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
+- Native Obsidian brain graph summarizes the live policy path with color-coded objective, state, learned features, decision, and action nodes
+- Sixteen focused tests pass on a portable Python 3.13.7 runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
 - Packageable Preview behavior pack spawns a `SimulatedPlayer`, navigates, places via inventory interaction, observes the result, and emits structured chat telemetry
 - Live Preview run completed with `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` (`exact_completion: true`, one correct block, zero missing blocks)
 - Live Preview multi-block run physically built and verified a complete 3×3 stone wall through nine player-driven placements
 - Headless content-log collector converts structured Bedrock events into crash-safe, sequenced JSONL expert trajectories
 - PyTorch Objective Selector V0 inherits deterministic expert target selection across 15,024 valid wall states; held-out accuracy is 99.63% raw and 100% with physical-validity masking
 - Objective Selector V0 weights export to Bedrock JavaScript; live Preview inference selected policy actions `0, 1, 2, 5, 6, 7, 10, 11, 12` and completed all nine physical placements with zero failures or retries
+- The verified neural Preview episode is recoverable from the content log as a 58-event JSONL trajectory
+- Live Preview content-log telemetry now drives the simplified Obsidian brain graph while recording the same episode
 
 ## Decisions
 
@@ -33,7 +35,7 @@ Objective Selector V0 neural inference physically built and verified a 3×3 wall
 
 ```powershell
 python -m unittest discover -s tests -v
-python -m archie.demo --obsidian
+archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 ```
 
 ## Constraints
@@ -43,4 +45,4 @@ python -m archie.demo --obsidian
 
 ## Immediate next step
 
-Connect live Preview telemetry to the simplified Obsidian brain graph, retain the verified neural episode, then add synchronized first-person visual features without removing privileged V0 labels.
+Human-verify the live Preview-to-Obsidian graph connection, then add synchronized first-person visual capture without removing privileged V0 labels.
