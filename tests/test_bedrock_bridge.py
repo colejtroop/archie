@@ -1,7 +1,7 @@
 import json
 import unittest
 
-from archie.bedrock_bridge import parse_archie_log_line, parse_archie_message
+from archie.bedrock_bridge import command_request, parse_archie_log_line, parse_archie_message
 from archie.telemetry import EventType
 
 
@@ -21,3 +21,8 @@ class BedrockBridgeTests(unittest.TestCase):
 
     def test_ignores_partial_content_log_record(self) -> None:
         self.assertIsNone(parse_archie_log_line('[ArchieTelemetry] {"event_type":"STATE_UPDATED"'))
+
+    def test_builds_script_command_request(self) -> None:
+        value = json.loads(command_request("/scriptevent archie:policy_action {}", "request-1"))
+        self.assertEqual(value["header"]["requestId"], "request-1")
+        self.assertEqual(value["body"]["commandLine"], "scriptevent archie:policy_action {}")

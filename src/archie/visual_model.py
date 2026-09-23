@@ -11,6 +11,17 @@ from .policy_data import COMPLETE_ACTION, MAX_WIDTH, masks
 
 UNKNOWN_ACTION = -1
 UNKNOWN_PLACEMENT = -1
+
+
+def image_tensor(image, image_size: tuple[int, int] = (160, 90), crop_top_fraction: float = 0.09):
+    import torch
+
+    image = image.convert("RGB")
+    crop_top = round(image.height * crop_top_fraction)
+    image = image.crop((0, crop_top, image.width, image.height)).resize(image_size)
+    width, height = image_size
+    tensor = torch.frombuffer(bytearray(image.tobytes()), dtype=torch.uint8)
+    return tensor.view(height, width, 3).permute(2, 0, 1).float().div_(255.0)
 PLACEMENT_CLASSES = {"SUCCEEDED": 0, "FAILED": 1}
 
 
@@ -63,12 +74,8 @@ class VisionSampleDataset:
         from PIL import Image
 
         record = self.records[index]
-        image = Image.open(self.root / record["image"]).convert("RGB")
-        crop_top = round(image.height * self.crop_top_fraction)
-        image = image.crop((0, crop_top, image.width, image.height)).resize(self.image_size)
-        width, height = self.image_size
-        tensor = torch.frombuffer(bytearray(image.tobytes()), dtype=torch.uint8)
-        tensor = tensor.view(height, width, 3).permute(2, 0, 1).float().div_(255.0)
+        image = Image.open(self.root / record["image"])
+        tensor = image_tensor(image, self.image_size, self.crop_top_fraction)
         target = target_from_labels(record["labels"])
         return tensor, {
             "progress": torch.tensor(target.progress, dtype=torch.float32),

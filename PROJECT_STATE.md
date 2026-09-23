@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-The first Vision-Fused Policy V1 checkpoint is trained with safe inheritance from Objective Selector V0. It is vision-sensitive and perfect on the initial held-out rainy episode, while live fused-policy control and privileged-input ablation remain unverified.
+Vision-Fused Policy V1 now controls objective selection live in Minecraft Preview through synchronized first-person frames and safe inherited state. Its first physical run applied all ten fused decisions and completed the wall exactly; privileged-input ablation remains the next research step.
 
 ## What works
 
@@ -32,6 +32,8 @@ The first Vision-Fused Policy V1 checkpoint is trained with safe inheritance fro
 - Vision-Fused Policy V1 retained 100% validity-masked accuracy on 38 held-out actions; real pixels changed logits by 0.329 on average while zero-image ablation left decisions unchanged
 - A live placement controller now branches beneath each selected objective: approach, place, verify, advance, reposition, retry, or bounded abort. These decisions are emitted as telemetry and visualized in Obsidian.
 - Preview verification: the controller detected an initial 5.00-block stand-point gap, selected REPOSITION, entered reach, and then completed the 3×3 wall 9/9 with zero placement failures or retries.
+- The live V1 bridge is implemented end to end: desktop frame/state synchronization, fused inference, bidirectional `/connect` command transport, token authentication, Bedrock episode/revision validation, validity masking, and bounded fallback telemetry.
+- First live fused run: 10/10 V1 decisions applied (nine placements plus complete), zero fallbacks/rejections, average decision latency ~0.33 s, maximum ~0.65 s, and exact 9/9 physical completion with zero placement failures or retries.
 
 ## Decisions
 
@@ -58,4 +60,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Implement the authenticated localhost transport and Bedrock-side revision gate defined in `docs/V1_LIVE_INFERENCE.md`, then physically verify Vision-Fused Policy V1 with explicit privileged fallback telemetry.
+Begin controlled privileged-input corruption and ablation, first measuring whether visual evidence can preserve objective selection when built-state cells are selectively hidden.

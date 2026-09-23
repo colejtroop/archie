@@ -23,6 +23,8 @@ Archie is a research platform for an embodied neural agent that physically const
 - Vision-fused V1 policy scaffold: the proven privileged selector is frozen as a safe base while a gated visual residual learns from episode-held-out data
 - First trained fused checkpoint: 100% masked accuracy on 38 actions from an entirely held-out rainy episode, with measurable image-conditioned logit changes and no inherited-policy regression
 - Hierarchical placement controller beneath the objective selector, branching through approach, place, verify, reposition, retry, advance, and abort
+- Authenticated live V1 inference gate with synchronized-frame checks, stale-decision rejection, validity masking, and bounded privileged fallback
+- Verified live Vision-Fused V1 run: 10/10 external decisions applied with zero fallbacks, followed by exact 9/9 physical completion
 
 ### Experimental
 

@@ -11,6 +11,9 @@ import { OBJECTIVE_SELECTOR_V0 } from "./policy_weights.js";
 const COMMAND = "archie:start";
 const VISION_ON_COMMAND = "archie:vision_on";
 const VISION_OFF_COMMAND = "archie:vision_off";
+const EXTERNAL_ON_COMMAND = "archie:external_on";
+const EXTERNAL_OFF_COMMAND = "archie:external_off";
+const EXTERNAL_ACTION_COMMAND = "archie:policy_action";
 const BLOCK_TYPE = "minecraft:stone";
 const WALL_WIDTH = 3;
 const WALL_HEIGHT = 3;
@@ -18,12 +21,16 @@ const MAX_ATTEMPTS = 3;
 const MOVE_TICKS = 40;
 const VERIFY_TICKS = 10;
 const VISION_SETTLE_TICKS = 240;
+const POLICY_TIMEOUT_TICKS = 100;
 const POLICY_WIDTH = 5;
 const COMPLETE_ACTION = 25;
 
 let activePlayer;
 let visionPlayer;
 let visionCameraRun;
+let externalToken;
+let pendingPolicy;
+let episodeCounter = 0;
 
 function stopVisionCamera(requestingPlayer) {
   if (visionCameraRun !== undefined) {
@@ -89,6 +96,44 @@ function selectNeuralObjective(blueprint, built) {
   return { action, logits, valid };
 }
 
+function rejectExternalDecision(reason, payload = {}) {
+  emit("POLICY_DECISION_REJECTED", { reason, ...payload });
+}
+
+function requestExternalDecision(episode, revision, blueprint, built, fallback, callback) {
+  if (pendingPolicy) {
+    system.clearRun(pendingPolicy.timeout);
+    rejectExternalDecision("superseded", { episode: pendingPolicy.episode, revision: pendingPolicy.revision });
+  }
+  const request = {
+    episode,
+    revision,
+    valid: fallback.valid,
+    fallback_action: fallback.action,
+    callback,
+  };
+  request.timeout = system.runTimeout(() => {
+    if (pendingPolicy !== request) return;
+    pendingPolicy = undefined;
+    emit("POLICY_FALLBACK_USED", {
+      episode,
+      revision,
+      action: fallback.action,
+      reason: "external inference timeout",
+    });
+    callback(fallback.action, "objective-selector-v0-fallback");
+  }, POLICY_TIMEOUT_TICKS);
+  pendingPolicy = request;
+  emit("POLICY_DECISION_REQUESTED", {
+    episode,
+    revision,
+    blueprint,
+    built,
+    valid_actions: fallback.valid,
+    fallback_action: fallback.action,
+  });
+}
+
 function blockPosition(location) {
   return {
     x: Math.floor(location.x),
@@ -121,6 +166,10 @@ function emit(eventType, payload = {}) {
   if (
     eventType === "OBJECTIVE_SELECTED"
     || eventType === "STATE_UPDATED"
+    || eventType === "POLICY_DECISION_REQUESTED"
+    || eventType === "POLICY_DECISION_APPLIED"
+    || eventType === "POLICY_DECISION_REJECTED"
+    || eventType === "POLICY_FALLBACK_USED"
     || eventType === "EPISODE_COMPLETED"
     || eventType === "EPISODE_FAILED"
   ) {
@@ -159,6 +208,13 @@ function disconnectActivePlayer() {
 
 function startPhysicalBuild(source) {
   disconnectActivePlayer();
+  if (pendingPolicy) {
+    system.clearRun(pendingPolicy.timeout);
+    pendingPolicy = undefined;
+  }
+
+  const episode = `${system.currentTick}-${++episodeCounter}`;
+  let stateRevision = 0;
 
   const dimension = source.dimension;
   // Keep the observing player outside Archie's spawn-to-wall navigation path.
@@ -194,6 +250,7 @@ function startPhysicalBuild(source) {
     block: BLOCK_TYPE,
     total_blocks: targets.size,
     policy: "objective-selector-v0",
+    episode,
     vision_capture: visionPlayer !== undefined,
   });
   emit("BLUEPRINT_LOADED", {
@@ -249,6 +306,10 @@ function startPhysicalBuild(source) {
   }
 
   function finish() {
+    if (pendingPolicy?.episode === episode) {
+      system.clearRun(pendingPolicy.timeout);
+      pendingPolicy = undefined;
+    }
     const result = comparison();
     emit(result.exact_completion ? "EPISODE_COMPLETED" : "EPISODE_FAILED", {
       ...metrics,
@@ -282,6 +343,7 @@ function startPhysicalBuild(source) {
         current_target: task.target,
         built_actions: state.built_actions,
       });
+      stateRevision += 1;
       system.runTimeout(buildNextTarget, 2);
       return;
     }
@@ -360,30 +422,46 @@ function startPhysicalBuild(source) {
       blueprint[action] = 1;
       if (dimension.getBlock(task.target)?.typeId === BLOCK_TYPE) built[action] = 1;
     }
-    const decision = selectNeuralObjective(blueprint, built);
-    if (decision.action === COMPLETE_ACTION) {
-      finish();
-      return;
+    const fallback = selectNeuralObjective(blueprint, built);
+
+    function executeDecision(action, policy) {
+      if (!fallback.valid.includes(action)) {
+        rejectExternalDecision("invalid action reached execution gate", { episode, revision: stateRevision, action });
+        action = fallback.action;
+        policy = "objective-selector-v0-fallback";
+      }
+      if (action === COMPLETE_ACTION) {
+        finish();
+        return;
+      }
+      const task = targets.get(action);
+      emit("OBJECTIVE_SELECTED", {
+        target: task.target,
+        block: BLOCK_TYPE,
+        policy,
+        policy_action: action,
+        valid_actions: fallback.valid,
+        selected_logit: fallback.logits[action],
+        episode,
+        revision: stateRevision,
+        total: targets.size,
+      });
+      emit("MOVEMENT_STARTED", { destination: task.stand, target: task.target });
+      placementDecision("APPROACH", "move to a supported interaction position", task.target);
+      try {
+        activePlayer.navigateToLocation(task.stand, 1.0);
+      } catch (error) {
+        emit("EPISODE_FAILED", { stage: "navigation", target: task.target, error: String(error) });
+        return;
+      }
+      system.runTimeout(() => prepareTarget(action), MOVE_TICKS);
     }
-    const task = targets.get(decision.action);
-    emit("OBJECTIVE_SELECTED", {
-      target: task.target,
-      block: BLOCK_TYPE,
-      policy: "objective-selector-v0",
-      policy_action: decision.action,
-      valid_actions: decision.valid,
-      selected_logit: decision.logits[decision.action],
-      total: targets.size,
-    });
-    emit("MOVEMENT_STARTED", { destination: task.stand, target: task.target });
-    placementDecision("APPROACH", "move to a supported interaction position", task.target);
-    try {
-      activePlayer.navigateToLocation(task.stand, 1.0);
-    } catch (error) {
-      emit("EPISODE_FAILED", { stage: "navigation", target: task.target, error: String(error) });
-      return;
+
+    if (externalToken) {
+      requestExternalDecision(episode, stateRevision, blueprint, built, fallback, executeDecision);
+    } else {
+      executeDecision(fallback.action, "objective-selector-v0");
     }
-    system.runTimeout(() => prepareTarget(decision.action), MOVE_TICKS);
   }
 
   // Let transient command/join chat fade before a labeled vision build.
@@ -391,6 +469,60 @@ function startPhysicalBuild(source) {
 }
 
 system.afterEvents.scriptEventReceive.subscribe((event) => {
+  if (event.id === EXTERNAL_ACTION_COMMAND) {
+    let value;
+    try {
+      value = JSON.parse(event.message);
+    } catch {
+      rejectExternalDecision("invalid JSON");
+      return;
+    }
+    if (!pendingPolicy) {
+      rejectExternalDecision("no decision is pending");
+      return;
+    }
+    if (!externalToken || value.token !== externalToken) {
+      rejectExternalDecision("authentication failed");
+      return;
+    }
+    if (value.episode !== pendingPolicy.episode || value.revision !== pendingPolicy.revision) {
+      rejectExternalDecision("stale or cross-episode decision", {
+        episode: value.episode,
+        revision: value.revision,
+      });
+      return;
+    }
+    if (!Number.isInteger(value.action) || !pendingPolicy.valid.includes(value.action)) {
+      rejectExternalDecision("action is not physically valid", { action: value.action });
+      return;
+    }
+    const request = pendingPolicy;
+    pendingPolicy = undefined;
+    system.clearRun(request.timeout);
+    emit("POLICY_DECISION_APPLIED", {
+      episode: value.episode,
+      revision: value.revision,
+      action: value.action,
+      source: value.source ?? "vision-fused-policy-v1",
+    });
+    request.callback(value.action, value.source ?? "vision-fused-policy-v1");
+    return;
+  }
+  if (event.id === EXTERNAL_OFF_COMMAND) {
+    externalToken = undefined;
+    world.sendMessage("§5[Archie]§r External policy disabled; Objective Selector V0 fallback is active.");
+    return;
+  }
+  if (event.id === EXTERNAL_ON_COMMAND) {
+    const token = event.message.trim();
+    if (event.sourceEntity?.typeId !== "minecraft:player" || token.length < 16) {
+      world.sendMessage("§c[Archie] External policy requires a player-issued token of at least 16 characters.§r");
+      return;
+    }
+    externalToken = token;
+    world.sendMessage("§5[Archie]§r External fused-policy gate armed for this world session.");
+    return;
+  }
   if (event.id === VISION_OFF_COMMAND) {
     if (event.sourceEntity?.typeId === "minecraft:player") {
       stopVisionCamera(event.sourceEntity);

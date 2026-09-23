@@ -2,14 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import secrets
 from pathlib import Path
 from threading import Event, Thread
 from time import sleep
 
-from .bedrock_bridge import ContentLogBridge
+from .bedrock_bridge import BedrockBridge, ContentLogBridge
 from .collector import TrajectoryWriter, default_content_log_directory, default_output
 from .policy import create_objective_selector, select_action, valid_actions
 from .policy_data import COMPLETE_ACTION, MAX_WIDTH, masks
+from .live_fused_runtime import LiveFusedRuntime
 from .preview_vision import LiveFrameLabels, capture_preview
 from .telemetry import Event as TelemetryEvent
 from .telemetry import EventType, Telemetry
@@ -34,6 +36,10 @@ class ObsidianNeuralGraph:
         self.current_action: int | None = None
         self.current_target_note: str | None = None
         self.placement_note: str | None = None
+        self.last_policy = "unknown"
+        self.applied_decisions = 0
+        self.fallback_decisions = 0
+        self.rejected_decisions = 0
         self.model[1].register_forward_hook(self._capture("features_1"))
         self.model[3].register_forward_hook(self._capture("features_2"))
 
@@ -180,7 +186,20 @@ class ObsidianNeuralGraph:
         if event.event_type is EventType.EPISODE_STARTED:
             self.built_actions.clear()
             self.current_action = None
+            self.last_policy = "unknown"
+            self.applied_decisions = 0
+            self.fallback_decisions = 0
+            self.rejected_decisions = 0
             self.step([0, 0, 0])
+            return
+        if event.event_type is EventType.POLICY_DECISION_APPLIED:
+            self.applied_decisions += 1
+            return
+        if event.event_type is EventType.POLICY_FALLBACK_USED:
+            self.fallback_decisions += 1
+            return
+        if event.event_type is EventType.POLICY_DECISION_REJECTED:
+            self.rejected_decisions += 1
             return
         if event.event_type is EventType.OBJECTIVE_SELECTED:
             raw_action = event.payload.get("policy_action")
@@ -192,12 +211,24 @@ class ObsidianNeuralGraph:
                 if x < len(heights):
                     heights[x] = max(heights[x], y + 1)
             predicted = self.step(heights)
+            policy = str(event.payload.get("policy", "unknown"))
+            self.last_policy = policy
+            source_note = f"Policy source - {policy}"
+            self._note(
+                source_note,
+                "model",
+                [self.current_target_note or "Architecture - objective selector"],
+                "The policy source that selected the live objective for this state revision.",
+                True,
+            )
+            self.placement_note = source_note
             if self.current_action is not None and predicted != self.current_action:
+                title = "Vision changed objective" if policy == "vision-fused-policy-v1" else "Warning - policy mismatch"
                 self._note(
-                    "Warning - policy mismatch",
+                    title,
                     "action",
-                    ["Learned construction features"],
-                    f"Python selected {predicted}; Preview selected {self.current_action}.",
+                    [source_note],
+                    f"Privileged selector proposed {predicted}; live policy selected {self.current_action}.",
                     True,
                 )
             return
@@ -227,6 +258,14 @@ class ObsidianNeuralGraph:
             return
         if event.event_type is EventType.EPISODE_COMPLETED:
             self.step([3, 3, 3])
+            self._note(
+                f"Episode policy - {self.last_policy}",
+                "complete",
+                ["Decision - structure complete", "Architecture - placement controller"],
+                f"Applied external decisions: {self.applied_decisions}. "
+                f"Fallbacks: {self.fallback_decisions}. Rejections: {self.rejected_decisions}.",
+                True,
+            )
             return
         if event.event_type is EventType.EPISODE_FAILED:
             self._note("Build failed", "action", ["Learned construction features"], str(event.payload), True)
@@ -257,6 +296,9 @@ def main() -> None:
     parser.add_argument("--vision-max-frames", type=int, default=300)
     parser.add_argument("--vision-warmup", type=float, default=6.0)
     parser.add_argument("--vision-output", type=Path, default=Path("data/generated/vision/preview"))
+    parser.add_argument("--live-fused", action="store_true")
+    parser.add_argument("--fused-checkpoint", type=Path, default=Path("checkpoints/vision-fused-policy-v1.pt"))
+    parser.add_argument("--external-token", default=None)
     args = parser.parse_args()
     graph = ObsidianNeuralGraph(args.vault, args.checkpoint)
     graph.materialize()
@@ -270,16 +312,20 @@ def main() -> None:
             output = args.trajectory_output or default_output()
             writer = TrajectoryWriter(output)
             live_labels = LiveFrameLabels()
+            fused_runtime: LiveFusedRuntime | None = None
 
             def sink(event: TelemetryEvent) -> None:
                 writer(event)
                 graph.consume(event)
                 live_labels.consume(event)
+                if fused_runtime:
+                    fused_runtime.consume(event)
 
             telemetry = Telemetry(sink=sink)
             directory = args.content_log_directory or default_content_log_directory()
-            bridge = ContentLogBridge(telemetry, directory)
-            bridge.start()
+            content_bridge = ContentLogBridge(telemetry, directory)
+            content_bridge.start()
+            recorder = None
             if args.capture_vision:
                 recorder = VisionRecorder(
                     RecordingPolicy(True, sample_every=1, max_frames=args.vision_max_frames, persist_images=True),
@@ -291,6 +337,23 @@ def main() -> None:
                     daemon=True,
                     name="archie-preview-vision",
                 ).start()
+            command_bridge = None
+            if args.live_fused:
+                if recorder is None:
+                    raise SystemExit("--live-fused requires --capture-vision")
+                token = args.external_token or secrets.token_hex(16)
+                if len(token) < 16:
+                    raise SystemExit("--external-token must contain at least 16 characters")
+                command_bridge = BedrockBridge(Telemetry())
+                command_bridge.start()
+                fused_runtime = LiveFusedRuntime(
+                    command_bridge,
+                    recorder,
+                    args.fused_checkpoint,
+                    token,
+                )
+                print("Live fused policy waiting for Minecraft /connect localhost:19131")
+                print(f"Then arm it with: /scriptevent archie:external_on {token}")
             print(f"Following live Preview telemetry: {directory}")
             print(f"Recording trajectory: {output}")
             if args.capture_vision:
@@ -300,7 +363,9 @@ def main() -> None:
     except KeyboardInterrupt:
         stop.set()
         if args.source == "live":
-            bridge.stop()
+            content_bridge.stop()
+            if command_bridge:
+                command_bridge.stop()
 
 
 if __name__ == "__main__":

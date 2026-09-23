@@ -7,7 +7,7 @@ import re
 import socket
 import struct
 from pathlib import Path
-from threading import Event as ThreadEvent, Thread
+from threading import Event as ThreadEvent, Lock, Thread
 from time import sleep
 from typing import Any
 from uuid import uuid4
@@ -111,6 +111,22 @@ def _send_frame(connection: socket.socket, payload: bytes, opcode: int = 1) -> N
     connection.sendall(header + payload)
 
 
+def command_request(command: str, request_id: str | None = None) -> bytes:
+    return json.dumps({
+        "header": {
+            "version": 1,
+            "requestId": request_id or str(uuid4()),
+            "messageType": "commandRequest",
+            "messagePurpose": "commandRequest",
+        },
+        "body": {
+            "version": 1,
+            "commandLine": command.lstrip("/"),
+            "origin": {"type": "player"},
+        },
+    }, separators=(",", ":")).encode()
+
+
 def _receive_frame(connection: socket.socket) -> tuple[int, bytes]:
     first, second = _read_exact(connection, 2)
     opcode = first & 0x0F
@@ -137,6 +153,8 @@ class BedrockBridge:
         self.connected = False
         self._stop = ThreadEvent()
         self._socket: socket.socket | None = None
+        self._connection: socket.socket | None = None
+        self._send_lock = Lock()
 
     def start(self) -> None:
         Thread(target=self._serve, daemon=True, name="archie-bedrock-bridge").start()
@@ -145,6 +163,20 @@ class BedrockBridge:
         self._stop.set()
         if self._socket:
             self._socket.close()
+
+    def send_command(self, command: str) -> str:
+        connection = self._connection
+        if not self.connected or connection is None:
+            raise ConnectionError("Minecraft is not connected to the Archie bridge")
+        request_id = str(uuid4())
+        with self._send_lock:
+            _send_frame(connection, command_request(command, request_id))
+        return request_id
+
+    def send_script_event(self, event_id: str, message: str) -> str:
+        if any(character.isspace() for character in event_id):
+            raise ValueError("script event id cannot contain whitespace")
+        return self.send_command(f"scriptevent {event_id} {message}")
 
     def _serve(self) -> None:
         with socket.socket() as server:
@@ -156,9 +188,11 @@ class BedrockBridge:
                 try:
                     connection, _ = server.accept()
                     with connection:
+                        self._connection = connection
                         self._handle(connection)
                 except (ConnectionError, OSError, ValueError, json.JSONDecodeError):
                     self.connected = False
+                    self._connection = None
 
     def _handle(self, connection: socket.socket) -> None:
         request = bytearray()
@@ -181,7 +215,8 @@ class BedrockBridge:
             },
             "body": {"eventName": "PlayerMessage"},
         }
-        _send_frame(connection, json.dumps(subscription).encode())
+        with self._send_lock:
+            _send_frame(connection, json.dumps(subscription).encode())
         while not self._stop.is_set():
             opcode, payload = _receive_frame(connection)
             if opcode == 8:

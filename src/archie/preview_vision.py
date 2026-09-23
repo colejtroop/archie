@@ -43,7 +43,7 @@ class LiveFrameLabels:
                 self.world = {
                     "origin": payload.get("origin"),
                     # Stable across recorder restarts, unlike the local counter.
-                    "episode": f"{event.timestamp}:{payload.get('bedrock_tick', 'unknown')}",
+                    "episode": payload.get("episode") or f"{event.timestamp}:{payload.get('bedrock_tick', 'unknown')}",
                 }
                 self.current_target = None
                 self.current_action = "START"
@@ -61,6 +61,8 @@ class LiveFrameLabels:
                 self.current_target = dict(payload.get("target") or {})
                 self.current_action = f"POLICY_ACTION_{payload.get('policy_action')}"
                 self.placement_result = None
+            elif event.event_type is EventType.POLICY_FALLBACK_USED:
+                self.world["policy_fallback"] = dict(payload)
             elif event.event_type is EventType.MOVEMENT_STARTED:
                 self.current_action = "MOVE"
             elif event.event_type is EventType.PLACEMENT_DECISION:

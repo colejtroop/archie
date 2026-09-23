@@ -1,6 +1,6 @@
 # Vision-Fused Policy V1
 
-Status: trained and evaluated offline on three physical Preview episodes; live fused-policy control remains the next integration step.
+Status: trained, evaluated offline, and physically verified as the live objective-selection policy in Minecraft Preview.
 
 ## Contract
 
@@ -34,4 +34,15 @@ Until those checks pass, this is a V1-ready fusion path, not a validated V1 mode
 - Mean real-vs-zero-image change: 0.3288 logits
 - Learned visual gate: -0.01938
 
-The real image measurably affects logits without changing any validity-masked decision on this task. That is the desired safe first inheritance result: vision is connected and trainable, while the proven privileged policy is preserved. Because the 3×3 wall is already completely determined by privileged masks, these results do not show that vision is necessary. The next evaluation must deploy fused inference live and then remove or corrupt selected privileged inputs.
+The real image measurably affects logits without changing any validity-masked decision on this task. That is the desired safe first inheritance result: vision is connected and trainable, while the proven privileged policy is preserved. Because the 3×3 wall is already completely determined by privileged masks, these results do not show that vision is necessary. The next evaluation must remove or corrupt selected privileged inputs.
+
+## First live physical run
+
+- External fused decisions applied: 10/10 (nine objectives plus complete)
+- Privileged fallbacks: 0
+- Rejected decisions: 0
+- Average decision latency: approximately 0.33 seconds
+- Maximum decision latency: approximately 0.65 seconds
+- Physical result: 9/9 exact completion, zero placement failures, zero retries
+
+The next experiment must reduce privileged built-state information. Until then, this proves safe live fusion and embodiment—not visual independence.

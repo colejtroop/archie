@@ -70,6 +70,10 @@ class VisionRecorder:
                 self.recorded += 1
             return frame
 
+    def latest_snapshot(self) -> VisionFrame | None:
+        with self._lock:
+            return self.latest
+
     def _persist(self, frame: VisionFrame) -> None:
         self.output.mkdir(parents=True, exist_ok=True)
         stem = f"frame-{frame.sequence:08d}-{frame.captured_at_ns}"
