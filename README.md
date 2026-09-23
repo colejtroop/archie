@@ -22,6 +22,7 @@ Archie is a research platform for an embodied neural agent that physically const
 - Visual Encoder V0 training pipeline: compact CNN, 128-dimensional embedding, and masked progress/action/placement supervision
 - Vision-fused V1 policy scaffold: the proven privileged selector is frozen as a safe base while a gated visual residual learns from episode-held-out data
 - First trained fused checkpoint: 100% masked accuracy on 38 actions from an entirely held-out rainy episode, with measurable image-conditioned logit changes and no inherited-policy regression
+- Hierarchical placement controller beneath the objective selector, branching through approach, place, verify, reposition, retry, advance, and abort
 
 ### Experimental
 

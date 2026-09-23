@@ -5,6 +5,7 @@ from time import monotonic
 
 from .blueprint import Blueprint, Position
 from .environment import Environment
+from .placement_controller import PlacementAction, PlacementController
 from .state import BuildComparison, compare_build
 from .telemetry import EventType, Telemetry
 
@@ -36,6 +37,7 @@ class DeterministicBuilder:
         self.environment = environment
         self.telemetry = telemetry
         self.max_attempts = max_attempts
+        self.placement_controller = PlacementController(max_attempts=max_attempts)
 
     def build(self, blueprint: Blueprint, origin: Position = Position(0, 0, 0)) -> BuildResult:
         started = monotonic()
@@ -54,6 +56,13 @@ class DeterministicBuilder:
             metrics.distance_traveled += before.distance(work_position)
             self.environment.select_block(block.block_type)
 
+            self.telemetry.publish(
+                EventType.PLACEMENT_DECISION,
+                decision=PlacementAction.PLACE.value,
+                reason="target is within simulated interaction reach",
+                target=asdict(position),
+            )
+
             for attempt in range(1, self.max_attempts + 1):
                 metrics.total_actions += 1
                 self.telemetry.publish(
@@ -62,7 +71,15 @@ class DeterministicBuilder:
                 )
                 self.environment.place_block(position, block)
                 observed = self.environment.observe_block(position)
-                if observed == block:
+                decision = self.placement_controller.after_observation(observed == block, attempt)
+                self.telemetry.publish(
+                    EventType.PLACEMENT_DECISION,
+                    decision=decision.action.value,
+                    reason=decision.reason,
+                    target=asdict(position),
+                    attempt=attempt,
+                )
+                if decision.action is PlacementAction.ADVANCE:
                     self.telemetry.publish(EventType.BLOCK_PLACEMENT_SUCCEEDED, target=asdict(position))
                     if attempt > 1:
                         metrics.repair_successes += 1
@@ -72,7 +89,7 @@ class DeterministicBuilder:
                     EventType.BLOCK_PLACEMENT_FAILED,
                     target=asdict(position), observed=observed.block_type if observed else None,
                 )
-                if attempt < self.max_attempts:
+                if decision.action is PlacementAction.RETRY:
                     metrics.repair_attempts += 1
                     self.telemetry.publish(EventType.FAULT_DETECTED, target=asdict(position), action="retry")
 

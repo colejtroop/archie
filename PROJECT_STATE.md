@@ -30,6 +30,8 @@ The first Vision-Fused Policy V1 checkpoint is trained with safe inheritance fro
 - Desktop capture is explicitly run with interactive-session access; failures now report why frames are being skipped instead of silently producing an empty dataset
 - Three clean Preview episodes produced 107 retained frames across night, clear daylight, and rain; the rainy episode was held out in full
 - Vision-Fused Policy V1 retained 100% validity-masked accuracy on 38 held-out actions; real pixels changed logits by 0.329 on average while zero-image ablation left decisions unchanged
+- A live placement controller now branches beneath each selected objective: approach, place, verify, advance, reposition, retry, or bounded abort. These decisions are emitted as telemetry and visualized in Obsidian.
+- Preview verification: the controller detected an initial 5.00-block stand-point gap, selected REPOSITION, entered reach, and then completed the 3×3 wall 9/9 with zero placement failures or retries.
 
 ## Decisions
 
@@ -40,6 +42,7 @@ The first Vision-Fused Policy V1 checkpoint is trained with safe inheritance fro
 - Store no raw frames by default. Recording must be enabled, sampled, and capped.
 - Keep learned scope explicit: Objective Selector V0 chooses the next supported blueprint cell; it does not yet control navigation, placement, or visual perception.
 - Freeze the verified privileged selector during initial fusion; vision contributes through a gated residual that is exactly zero at initialization.
+- Keep high-level objective selection separate from low-level placement control so navigation and recovery can grow without retraining blueprint planning.
 
 ## Commands
 
@@ -55,4 +58,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Add a live inference bridge for Vision-Fused Policy V1, verify one physical build with fusion enabled, then evaluate controlled privileged-input corruption/ablation.
+Add a live inference bridge for Vision-Fused Policy V1 and evaluate controlled privileged-input corruption/ablation.

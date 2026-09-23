@@ -176,6 +176,18 @@ class ObsidianNeuralGraph:
                     True,
                 )
             return
+        if event.event_type is EventType.PLACEMENT_DECISION:
+            decision = str(event.payload.get("decision", "UNKNOWN")).lower()
+            reason = str(event.payload.get("reason", "No reason reported."))
+            target = event.payload.get("target")
+            self._note(
+                f"Placement controller - {decision}",
+                "action",
+                ["Action - place block"],
+                f"Target: {target}. Reason: {reason}",
+                True,
+            )
+            return
         if event.event_type is EventType.BLOCK_PLACEMENT_SUCCEEDED and self.current_action is not None:
             self.built_actions.add(self.current_action)
             heights = [0, 0, 0]

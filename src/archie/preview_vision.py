@@ -63,6 +63,8 @@ class LiveFrameLabels:
                 self.placement_result = None
             elif event.event_type is EventType.MOVEMENT_STARTED:
                 self.current_action = "MOVE"
+            elif event.event_type is EventType.PLACEMENT_DECISION:
+                self.current_action = f"PLACEMENT_{payload.get('decision')}"
             elif event.event_type is EventType.BLOCK_PLACEMENT_ATTEMPTED:
                 self.current_action = "PLACE"
             elif event.event_type is EventType.BLOCK_PLACEMENT_SUCCEEDED:

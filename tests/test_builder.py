@@ -37,6 +37,16 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(result.metrics.repair_attempts, 1)
         self.assertEqual(result.metrics.repair_successes, 1)
 
+    def test_builder_emits_placement_controller_branches(self) -> None:
+        telemetry = Telemetry()
+        DeterministicBuilder(SimulatedEnvironment(), telemetry).build(wall(1, 1))
+        decisions = [
+            event.payload["decision"]
+            for event in telemetry.events
+            if event.event_type is EventType.PLACEMENT_DECISION
+        ]
+        self.assertEqual(decisions, ["PLACE", "ADVANCE"])
+
 
 if __name__ == "__main__":
     unittest.main()

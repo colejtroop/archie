@@ -101,6 +101,14 @@ function add(position, x, y, z) {
   return { x: position.x + x, y: position.y + y, z: position.z + z };
 }
 
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+function placementDecision(decision, reason, target, attempt = 0) {
+  emit("PLACEMENT_DECISION", { decision, reason, target, attempt });
+}
+
 function emit(eventType, payload = {}) {
   const event = JSON.stringify({
     event_type: eventType,
@@ -255,6 +263,7 @@ function startPhysicalBuild(source) {
     const task = targets.get(action);
     const observed = dimension.getBlock(task.target)?.typeId ?? null;
     if (observed === BLOCK_TYPE) {
+      placementDecision("ADVANCE", "intended block was observed", task.target, attempt);
       emit("BLOCK_PLACEMENT_SUCCEEDED", {
         target: task.target,
         intended: BLOCK_TYPE,
@@ -285,10 +294,12 @@ function startPhysicalBuild(source) {
       attempt,
     });
     if (attempt < MAX_ATTEMPTS) {
+      placementDecision("RETRY", "placement was not observed", task.target, attempt);
       metrics.repair_attempts += 1;
       emit("FAULT_DETECTED", { target: task.target, action: "retry", next_attempt: attempt + 1 });
       system.runTimeout(() => placeTarget(action, attempt + 1), 5);
     } else {
+      placementDecision("ABORT", "placement retry budget was exhausted", task.target, attempt);
       finish();
     }
   }
@@ -298,6 +309,7 @@ function startPhysicalBuild(source) {
     metrics.total_actions += 1;
     try {
       activePlayer.lookAtBlock(task.support);
+      placementDecision("PLACE", "target is within interaction reach", task.target, attempt);
       emit("BLOCK_PLACEMENT_ATTEMPTED", {
         target: task.target,
         block: BLOCK_TYPE,
@@ -312,10 +324,33 @@ function startPhysicalBuild(source) {
         { x: 0.5, y: 1.0, z: 0.5 },
       );
       emit("ACTION_DISPATCHED", { actionAccepted, target: task.target, attempt });
+      placementDecision("VERIFY", "waiting to observe placement result", task.target, attempt);
     } catch (error) {
       emit("BLOCK_PLACEMENT_FAILED", { target: task.target, attempt, error: String(error) });
     }
     system.runTimeout(() => verifyPlacement(action, attempt), VERIFY_TICKS);
+  }
+
+  function prepareTarget(action, repositionAttempts = 0) {
+    const task = targets.get(action);
+    const remaining = distance(activePlayer.location, task.stand);
+    if (remaining <= 2.25) {
+      placeTarget(action, 1);
+      return;
+    }
+    if (repositionAttempts >= MAX_ATTEMPTS) {
+      placementDecision("ABORT", "target remained unreachable after repositioning", task.target);
+      finish();
+      return;
+    }
+    placementDecision("REPOSITION", `target is ${remaining.toFixed(2)} blocks from stand point`, task.target);
+    try {
+      activePlayer.navigateToLocation(task.stand, 1.0);
+    } catch (error) {
+      emit("EPISODE_FAILED", { stage: "reposition", target: task.target, error: String(error) });
+      return;
+    }
+    system.runTimeout(() => prepareTarget(action, repositionAttempts + 1), 20);
   }
 
   function buildNextTarget() {
@@ -341,13 +376,14 @@ function startPhysicalBuild(source) {
       total: targets.size,
     });
     emit("MOVEMENT_STARTED", { destination: task.stand, target: task.target });
+    placementDecision("APPROACH", "move to a supported interaction position", task.target);
     try {
       activePlayer.navigateToLocation(task.stand, 1.0);
     } catch (error) {
       emit("EPISODE_FAILED", { stage: "navigation", target: task.target, error: String(error) });
       return;
     }
-    system.runTimeout(() => placeTarget(decision.action, 1), MOVE_TICKS);
+    system.runTimeout(() => prepareTarget(decision.action), MOVE_TICKS);
   }
 
   // Let transient command/join chat fade before a labeled vision build.
