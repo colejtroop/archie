@@ -58,4 +58,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Add a live inference bridge for Vision-Fused Policy V1 and evaluate controlled privileged-input corruption/ablation.
+Implement the authenticated localhost transport and Bedrock-side revision gate defined in `docs/V1_LIVE_INFERENCE.md`, then physically verify Vision-Fused Policy V1 with explicit privileged fallback telemetry.
