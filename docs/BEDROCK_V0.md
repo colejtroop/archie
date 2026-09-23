@@ -2,13 +2,15 @@
 
 Archie's first live body uses the experimental Bedrock GameTest `SimulatedPlayer`. The pack performs real player navigation and inventory-based block placement. Direct block writes are used only to reset its tiny support/air test fixture.
 
+The first end-to-end physical placement was verified in Minecraft Preview on 2026-09-22. The run emitted `EPISODE_STARTED`, state and movement events, `BLOCK_PLACEMENT_SUCCEEDED`, and `EPISODE_COMPLETED` with exact completion and no missing blocks.
+
 ## Requirements
 
-- Minecraft Preview compatible with engine `1.26.60-preview.25`
+- Minecraft Preview compatible with engine `1.26.60-preview.28`
 - Beta APIs/experimental creator features enabled for the test world
 - Cheats enabled and the testing player made an operator
 
-The module is pre-release. Exact Preview versions matter: the manifest currently requests `@minecraft/server` `2.12.0-beta.1.26.60-preview.25` and `@minecraft/server-gametest` `1.0.0-beta.1.26.60-preview.25`.
+The module is pre-release. The installed Preview runtime reports the accepted manifest versions as `@minecraft/server` `2.12.0-beta` and `@minecraft/server-gametest` `1.0.0-beta`.
 
 ## Package
 
@@ -36,4 +38,6 @@ Expected behavior:
 6. Chat reports `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` with `exact_completion: true`.
 
 If it fails, retain the complete purple `[Archie]` chat message. Its structured payload identifies the failed stage and API error.
+
+For manifest/load troubleshooting, temporarily set the script module entry to `scripts/diagnostic.js`. A successful `/scriptevent archie:ping` returns `[Archie] DIAGNOSTIC_OK`.
 

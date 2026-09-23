@@ -68,7 +68,7 @@ function startPhysicalPlacement(source) {
     activePlayer = spawnSimulatedPlayer(
       { dimension, ...start },
       "Archie",
-      GameMode.creative,
+      GameMode.Creative,
     );
     activePlayer.setItem(new ItemStack(BLOCK_TYPE, 64), 0, true);
     emit("STATE_UPDATED", {
@@ -114,7 +114,7 @@ function startPhysicalPlacement(source) {
   }, MOVE_TICKS);
 }
 
-world.afterEvents.scriptEventReceive.subscribe((event) => {
+system.afterEvents.scriptEventReceive.subscribe((event) => {
   if (event.id !== COMMAND) return;
   if (!event.sourceEntity || event.sourceEntity.typeId !== "minecraft:player") {
     emit("EPISODE_FAILED", { stage: "command", error: "Run the command as a player." });

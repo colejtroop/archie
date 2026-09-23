@@ -19,11 +19,11 @@
   "dependencies": [
     {
       "module_name": "@minecraft/server",
-      "version": "2.12.0-beta.1.26.60-preview.25"
+      "version": "2.12.0-beta"
     },
     {
       "module_name": "@minecraft/server-gametest",
-      "version": "1.0.0-beta.1.26.60-preview.25"
+      "version": "1.0.0-beta"
     }
   ],
   "metadata": {
