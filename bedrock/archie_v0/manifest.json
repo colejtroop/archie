@@ -1,18 +1,18 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Archie V0 Physical Builder",
-    "description": "Physical movement, placement, observation, and verification for Archie.",
-    "uuid": "6d974b73-dc18-4ff7-97f8-0310d954d787",
-    "version": [0, 2, 1],
+    "name": "Archie V0.4.5 Spatial Builder",
+    "description": "Blueprint input, native mcstructure loading, responsive movement, placement, observation, and verification for Archie.",
+    "uuid": "d6eab32d-f5cb-49f7-a9b2-18c136c15a4d",
+    "version": [0, 4, 5],
     "min_engine_version": [1, 26, 60]
   },
   "modules": [
     {
       "type": "script",
       "language": "javascript",
-      "uuid": "6d6d1833-ef0a-49ac-b936-45d83e59bb5e",
-      "version": [0, 2, 1],
+      "uuid": "85c4a62b-19ed-4301-bc5f-0fa9681ac8a3",
+      "version": [0, 4, 5],
       "entry": "scripts/main.js"
     }
   ],

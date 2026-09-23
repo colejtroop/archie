@@ -25,6 +25,9 @@ Archie is a research platform for an embodied neural agent that physically const
 - Hierarchical placement controller beneath the objective selector, branching through approach, place, verify, reposition, retry, advance, and abort
 - Authenticated live V1 inference gate with synchronized-frame checks, stale-decision rejection, validity masking, and bounded privileged fallback
 - Verified live Vision-Fused V1 run: 10/10 external decisions applied with zero fallbacks, followed by exact 9/9 physical completion
+- Validated player-supplied blueprint patterns for named 1-5 by 1-5 supported structures in the current learned construction plane
+- Readiness-driven movement and placement verification, replacing the fixed per-block delays that dominated live build time
+- Dependency-free Bedrock `.mcstructure` ingestion with validated spatial plans up to 5×5×5 and a local `/connect` loader
 
 ### Experimental
 
@@ -61,8 +64,9 @@ The intended live Bedrock implementation uses Microsoft's experimental GameTest 
 
 ## Roadmap
 
-1. Run the fused PyTorch policy in the live Preview control path and verify a physical build.
-2. Measure controlled privileged-input corruption and ablation while preserving safety masks.
-3. Add deterministic scaffolding and repair curricula.
-4. Expand visual data across structures, viewpoints, mobs, failures, and worlds.
+1. Physically validate blueprint input and the readiness-driven speed path across multiple structures.
+2. Generalize the 25-action planar policy into a spatial blueprint planner.
+3. Measure controlled privileged-input corruption and ablation while preserving safety masks.
+4. Add deterministic scaffolding and repair curricula.
+5. Expand visual data across structures, viewpoints, mobs, failures, and worlds.
 

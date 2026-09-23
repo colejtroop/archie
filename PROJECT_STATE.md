@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Vision-Fused Policy V1 now controls objective selection live in Minecraft Preview through synchronized first-person frames and safe inherited state. Its first physical run applied all ten fused decisions and completed the wall exactly; privileged-input ablation remains the next research step.
+Vision-Fused Policy V1 now controls objective selection live in Minecraft Preview through synchronized first-person frames and safe inherited state. Its first physical run applied all ten fused decisions and completed the wall exactly. The Preview body now accepts validated planar blueprint patterns and uses readiness-driven movement and verification instead of fixed per-block delays; both changes await physical validation.
 
 ## What works
 
@@ -33,6 +33,15 @@ Vision-Fused Policy V1 now controls objective selection live in Minecraft Previe
 - A live placement controller now branches beneath each selected objective: approach, place, verify, advance, reposition, retry, or bounded abort. These decisions are emitted as telemetry and visualized in Obsidian.
 - Preview verification: the controller detected an initial 5.00-block stand-point gap, selected REPOSITION, entered reach, and then completed the 3×3 wall 9/9 with zero placement failures or retries.
 - The live V1 bridge is implemented end to end: desktop frame/state synchronization, fused inference, bidirectional `/connect` command transport, token authentication, Bedrock episode/revision validation, validity masking, and bounded fallback telemetry.
+- Blueprint input accepts a named, block-typed, bottom-to-top binary pattern up to 5×5 and rejects malformed, empty, oversized, or unsupported structures before a build begins.
+- Bedrock `.mcstructure` import decodes the native little-endian NBT format without third-party dependencies and transfers a validated compact 3D plan over the local `/connect` bridge. Spatial builds use a separate deterministic back-to-front planner until the neural action space grows beyond its planar 25 cells.
+- The physical controller polls navigation readiness every two ticks and placement success every tick, preserving bounded recovery while removing 2.5 seconds of unconditional waiting per block.
+- Compact spatial builds reuse a central angled construction vantage, and item use waits two ticks for the simulated player's aim to settle; this targets both excess walking and the first-attempt failures observed in the initial 25/27 cube run.
+- The first shared-vantage test exposed that the planar 2.25-block arrival radius allowed placement while Archie still occupied a target cell; spatial arrival is now isolated at a strict 1.0-block radius before aiming.
+- Spatial target order now forms explicit placement rays: floor-by-floor, lateral lane-by-lane, and far-to-near, reducing camera rotation between successive clicks.
+- The first placement-ray test showed the one-block front vantage could overlap the next target and that five-tick successive uses were rejected. The corrected controller stands two blocks clear and targets a reliable ten-tick click cadence.
+- V0.4.4 physically completed the imported 3×3×3 cobblestone structure exactly: 27/27 blocks, zero failed placements, and zero retries. Its 66.2-second runtime was dominated by 20 unnecessary arrival repositions at 1.02 blocks; the safe cleared-vantage tolerance is now 1.25 blocks.
+- Obsidian's native brain graph now maintains exactly one bright `brain-current` node and advances it through spatial input, selected cell, placement-controller branch, verified state, and completion as live Minecraft telemetry arrives.
 - First live fused run: 10/10 V1 decisions applied (nine placements plus complete), zero fallbacks/rejections, average decision latency ~0.33 s, maximum ~0.65 s, and exact 9/9 physical completion with zero placement failures or retries.
 
 ## Decisions
@@ -60,4 +69,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Begin controlled privileged-input corruption and ablation, first measuring whether visual evidence can preserve objective selection when built-state cells are selectively hidden.
+Physically test at least two supplied blueprint patterns and measure end-to-end build time plus per-stage latency. Then expand the planar input contract toward native `.mcstructure` conversion and a spatial planner without regressing the verified live V1 policy.

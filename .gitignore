@@ -43,6 +43,7 @@ node_modules/
 dist/
 build/
 *.mcpack
+blueprints/*.mcstructure
 
 # Local Bedrock worlds, packs, server binaries, and runtime state.
 worlds/

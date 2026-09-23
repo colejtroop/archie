@@ -40,6 +40,9 @@ class ObsidianNeuralGraph:
         self.applied_decisions = 0
         self.fallback_decisions = 0
         self.rejected_decisions = 0
+        self.blueprint_name = "3x3-wall"
+        self.total_blocks = 9
+        self.spatial_episode = False
         self.model[1].register_forward_hook(self._capture("features_1"))
         self.model[3].register_forward_hook(self._capture("features_2"))
 
@@ -50,6 +53,8 @@ class ObsidianNeuralGraph:
         return hook
 
     def _note(self, name: str, role: str, links: list[str], body: str, current: bool = False) -> None:
+        if current:
+            self._clear_current_tags()
         tags = ["archie-brain", f"brain-{role}"]
         if current:
             tags.append("brain-current")
@@ -62,6 +67,17 @@ class ObsidianNeuralGraph:
             + "\n"
         )
         (self.root / f"{name}.md").write_text(content, encoding="utf-8")
+
+    def _clear_current_tags(self) -> None:
+        """Keep exactly one graph node illuminated as execution advances."""
+        for path in self.root.glob("*.md"):
+            if not self._is_generated(path):
+                continue
+            content = path.read_text(encoding="utf-8")
+            if "brain-current" not in content:
+                continue
+            content = content.replace(", brain-current", "").replace("brain-current, ", "")
+            path.write_text(content, encoding="utf-8")
 
     def materialize(self) -> None:
         old_root = self.vault / "Archie" / "Neural Network"
@@ -85,6 +101,12 @@ class ObsidianNeuralGraph:
             "model",
             ["Architecture - objective selector"],
             "Executes each objective through approach, place, verify, reposition, retry, advance, or abort.",
+        )
+        self._note(
+            "Architecture - spatial blueprint planner",
+            "model",
+            ["Objective - build 3x3 wall", "Architecture - placement controller"],
+            "Orders imported 3D cells into supported floor, lane, and far-to-near placement rays.",
         )
         self._configure_graph()
 
@@ -190,7 +212,27 @@ class ObsidianNeuralGraph:
             self.applied_decisions = 0
             self.fallback_decisions = 0
             self.rejected_decisions = 0
-            self.step([0, 0, 0])
+            self.blueprint_name = str(event.payload.get("blueprint", "unknown-blueprint"))
+            self.total_blocks = int(event.payload.get("total_blocks", 0) or 0)
+            self.spatial_episode = event.payload.get("policy") == "spatial-blueprint-planner-v0"
+            if self.spatial_episode:
+                self._clear_live_notes()
+                for path in self.root.glob("Objective - *.md"):
+                    if self._is_generated(path):
+                        path.unlink()
+                objective = f"Objective - build {self.blueprint_name}"
+                blueprint = f"Blueprint - {self.blueprint_name} ({self.total_blocks} blocks)"
+                self._note(objective, "objective", [], "The imported spatial construction objective.")
+                self._note(
+                    blueprint,
+                    "input",
+                    [objective, "Architecture - spatial blueprint planner"],
+                    "Validated cells and palette decoded from the Bedrock .mcstructure input.",
+                    True,
+                )
+            else:
+                self._note("Objective - build 3x3 wall", "objective", [], "The construction objective Archie is pursuing.")
+                self.step([0, 0, 0])
             return
         if event.event_type is EventType.POLICY_DECISION_APPLIED:
             self.applied_decisions += 1
@@ -205,14 +247,27 @@ class ObsidianNeuralGraph:
             raw_action = event.payload.get("policy_action")
             if isinstance(raw_action, int):
                 self.current_action = raw_action
+            policy = str(event.payload.get("policy", "unknown"))
+            self.last_policy = policy
+            if self.spatial_episode:
+                target = event.payload.get("target")
+                note = f"Spatial objective - action {self.current_action}"
+                self._note(
+                    note,
+                    "decision",
+                    ["Architecture - spatial blueprint planner"],
+                    f"Selected the next supported cell at {target} in the active placement ray.",
+                    True,
+                )
+                self.current_target_note = note
+                self.placement_note = note
+                return
             heights = [0, 0, 0]
             for action in self.built_actions:
                 x, y = action % MAX_WIDTH, action // MAX_WIDTH
                 if x < len(heights):
                     heights[x] = max(heights[x], y + 1)
             predicted = self.step(heights)
-            policy = str(event.payload.get("policy", "unknown"))
-            self.last_policy = policy
             source_note = f"Policy source - {policy}"
             self._note(
                 source_note,
@@ -249,6 +304,17 @@ class ObsidianNeuralGraph:
             return
         if event.event_type is EventType.BLOCK_PLACEMENT_SUCCEEDED and self.current_action is not None:
             self.built_actions.add(self.current_action)
+            if self.spatial_episode:
+                progress = f"Observed build - {len(self.built_actions)} of {self.total_blocks} complete"
+                self._note(
+                    progress,
+                    "state",
+                    [self.placement_note or "Architecture - placement controller"],
+                    "Minecraft confirmed the intended block at the selected spatial target.",
+                    True,
+                )
+                self.placement_note = progress
+                return
             heights = [0, 0, 0]
             for action in self.built_actions:
                 x, y = action % MAX_WIDTH, action // MAX_WIDTH
@@ -257,13 +323,15 @@ class ObsidianNeuralGraph:
             self.step(heights)
             return
         if event.event_type is EventType.EPISODE_COMPLETED:
-            self.step([3, 3, 3])
+            if not self.spatial_episode:
+                self.step([3, 3, 3])
             self._note(
                 f"Episode policy - {self.last_policy}",
                 "complete",
-                ["Decision - structure complete", "Architecture - placement controller"],
-                f"Applied external decisions: {self.applied_decisions}. "
-                f"Fallbacks: {self.fallback_decisions}. Rejections: {self.rejected_decisions}.",
+                [self.placement_note or "Architecture - placement controller"],
+                f"Completed {len(self.built_actions)} of {self.total_blocks} blocks. "
+                f"Applied external decisions: {self.applied_decisions}. Fallbacks: {self.fallback_decisions}. "
+                f"Rejections: {self.rejected_decisions}.",
                 True,
             )
             return

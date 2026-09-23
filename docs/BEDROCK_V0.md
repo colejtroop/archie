@@ -30,6 +30,25 @@ Stand on open, flat ground and enter:
 /scriptevent archie:start
 ```
 
+### Blueprint input
+
+The current learned policy accepts a named vertical pattern up to 5×5. `rows` are ordered bottom-to-top, use `1` for a block and `0` for empty space, and every upper block must be supported by a block in the row below it. Load a pattern before starting:
+
+```text
+/scriptevent archie:blueprint {"name":"stone-pyramid","block":"minecraft:stone","rows":["11111","01110","00100"]}
+/scriptevent archie:start
+```
+
+Archie validates the name, block identifier, dimensions, cell values, non-empty structure, and support constraints before accepting it. The selected blueprint persists for the current world session. This V1 input is intentionally planar; native `.mcstructure` ingestion and arbitrary 3D planning are separate milestones.
+
+Archie's repository-side editable blueprint convention is `.archie.json`. Minecraft Bedrock's native saved-structure suffix is `.mcstructure`. The host importer validates little-endian Bedrock NBT, its dimensions, palette indexes, and block data before sending a compact spatial plan to Preview:
+
+```powershell
+archie-load-structure "blueprints\cobblestone_3x3x3.mcstructure"
+```
+
+Then run `/connect localhost:19131` in Preview. When chat confirms the spatial blueprint loaded, run `/scriptevent archie:start`. Spatial inputs are currently bounded to 5×5×5, 64 blocks, nine palette entries, empty block-state maps, and vertically supported cells. Spatial target ordering is deterministic: floor-by-floor, lateral lane-by-lane, and far-to-near within each lane. The learned 25-action planar objective selector remains isolated until its action representation is generalized.
+
 ### Opt-in first-person capture
 
 Archie's camera mirror is always off by default. To prepare a bounded, labeled capture run:
@@ -51,11 +70,15 @@ Expected behavior:
 
 1. Chat reports a concise build-start summary; full structured events go to the Preview content log with the `[ArchieTelemetry]` prefix.
 2. A player named **Archie** appears beside a test fixture offset from the observing player, keeping the human avatar out of its navigation path.
-3. The pack loads a 3×3 stone-wall blueprint and runs Objective Selector V0 inference against the current built-state mask.
+3. The pack loads the selected validated blueprint (a 3×3 stone wall by default) and runs Objective Selector V0 inference against the current built-state mask.
 4. For each neural-policy target, Archie moves into reach, selects stone, and physically uses it on the supporting block.
 5. A lower-level placement controller chooses approach, place, verify, reposition, retry, advance, or abort. Each placement is observed and recovery is bounded to three attempts.
 6. The complete structure is checked against all nine targets.
 7. Chat reports a concise `9/9 blocks verified` completion summary.
+
+Movement and placement verification are readiness-driven. Archie checks every two ticks while navigating and every tick after placement, while retaining the original bounded timeouts and retry policy. This removes the former fixed 40-tick movement delay and 10-tick success delay without weakening failure detection.
+
+For compact spatial structures up to three blocks wide, the placement controller reuses one central construction vantage two blocks clear of the front face. It completes each depth lane from far to near, minimizing view-angle changes between clicks instead of sweeping the entire back plane. Spatial arrival uses a 1.25-block radius at that cleared vantage so normal navigation jitter does not trigger reposition timeouts. An eight-tick aim/cooldown phase keeps successive clicks on Minecraft's reliable 10-tick item-use cadence. Wider structures currently use per-column vantages; learned viewpoint selection remains a later perception/control skill.
 
 If it fails, retain the red `[Archie]` summary. Detailed structured diagnostics remain in the Preview content log.
 

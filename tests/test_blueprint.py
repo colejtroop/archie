@@ -1,6 +1,8 @@
 import unittest
+from pathlib import Path
 
 from archie.blueprint import BlockSpec, Position, wall
+from archie.mcstructure import blueprint_payload, load_mcstructure
 from archie.state import compare_build
 
 
@@ -21,6 +23,17 @@ class BlueprintTests(unittest.TestCase):
         self.assertEqual(len(result.missing), 1)
         self.assertEqual(len(result.extra), 1)
         self.assertFalse(result.exact)
+
+    def test_loads_user_cobblestone_mcstructure(self) -> None:
+        path = Path("blueprints/cobblestone_3x3x3.mcstructure")
+        if not path.exists():
+            self.skipTest("local user blueprint is not present")
+        blueprint = load_mcstructure(path)
+        payload = blueprint_payload(blueprint)
+        self.assertEqual(len(blueprint.blocks), 27)
+        self.assertEqual({block.block_type for block in blueprint.blocks.values()}, {"minecraft:cobblestone"})
+        self.assertEqual(len(payload["palette"]), 1)
+        self.assertEqual(len(payload["cells"]), 27)
 
 
 if __name__ == "__main__":
