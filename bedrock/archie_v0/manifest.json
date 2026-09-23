@@ -4,7 +4,7 @@
     "name": "Archie V0 Physical Builder",
     "description": "Physical movement, placement, observation, and verification for Archie.",
     "uuid": "6d974b73-dc18-4ff7-97f8-0310d954d787",
-    "version": [0, 1, 0],
+    "version": [0, 2, 1],
     "min_engine_version": [1, 26, 60]
   },
   "modules": [
@@ -12,7 +12,7 @@
       "type": "script",
       "language": "javascript",
       "uuid": "6d6d1833-ef0a-49ac-b936-45d83e59bb5e",
-      "version": [0, 1, 0],
+      "version": [0, 2, 1],
       "entry": "scripts/main.js"
     }
   ],

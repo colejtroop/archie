@@ -6,6 +6,7 @@ import {
   world,
 } from "@minecraft/server";
 import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
+import { OBJECTIVE_SELECTOR_V0 } from "./policy_weights.js";
 
 const COMMAND = "archie:start";
 const BLOCK_TYPE = "minecraft:stone";
@@ -14,8 +15,39 @@ const WALL_HEIGHT = 3;
 const MAX_ATTEMPTS = 3;
 const MOVE_TICKS = 40;
 const VERIFY_TICKS = 10;
+const POLICY_WIDTH = 5;
+const COMPLETE_ACTION = 25;
 
 let activePlayer;
+
+function dense(input, layer, relu) {
+  return layer.weights.map((row, outputIndex) => {
+    let value = layer.bias[outputIndex];
+    for (let inputIndex = 0; inputIndex < input.length; inputIndex += 1) {
+      value += row[inputIndex] * input[inputIndex];
+    }
+    return relu ? Math.max(0, value) : value;
+  });
+}
+
+function selectNeuralObjective(blueprint, built) {
+  let values = blueprint.concat(built);
+  values = dense(values, OBJECTIVE_SELECTOR_V0.layers[0], true);
+  values = dense(values, OBJECTIVE_SELECTOR_V0.layers[1], true);
+  const logits = dense(values, OBJECTIVE_SELECTOR_V0.layers[2], false);
+  const valid = [];
+  for (let index = 0; index < 25; index += 1) {
+    if (blueprint[index] && !built[index] && (index < POLICY_WIDTH || built[index - POLICY_WIDTH])) {
+      valid.push(index);
+    }
+  }
+  if (valid.length === 0) return { action: COMPLETE_ACTION, logits, valid: [COMPLETE_ACTION] };
+  let action = valid[0];
+  for (const candidate of valid.slice(1)) {
+    if (logits[candidate] > logits[action]) action = candidate;
+  }
+  return { action, logits, valid };
+}
 
 function blockPosition(location) {
   return {
@@ -38,7 +70,7 @@ function emit(eventType, payload = {}) {
   console.info(`[ArchieTelemetry] ${event}`);
 
   if (eventType === "EPISODE_STARTED") {
-    world.sendMessage(`§5[Archie]§r Starting ${payload.blueprint} (${payload.total_blocks} blocks).`);
+    world.sendMessage(`§5[Archie]§r Starting ${payload.blueprint} with §dObjective Selector V0§r (${payload.total_blocks} blocks).`);
   } else if (eventType === "STATE_UPDATED" && payload.correct > 0) {
     const percent = Math.round(payload.completion * 100);
     world.sendMessage(`§5[Archie]§r Progress: ${payload.correct}/${payload.correct + payload.missing} blocks (${percent}%).`);
@@ -69,10 +101,11 @@ function startPhysicalBuild(source) {
   const dimension = source.dimension;
   const origin = blockPosition(source.location);
   const start = add(origin, -3, 0, 0);
-  const targets = [];
+  const targets = new Map();
   for (let y = 0; y < WALL_HEIGHT; y += 1) {
-    for (let z = -1; z <= 1; z += 1) {
-      targets.push({
+    for (let x = 0; x < WALL_WIDTH; x += 1) {
+      const z = x - 1;
+      targets.set(y * POLICY_WIDTH + x, {
         target: add(origin, 2, y, z),
         support: add(origin, 2, y - 1, z),
         stand: add(origin, 1, 0, z),
@@ -85,7 +118,7 @@ function startPhysicalBuild(source) {
   for (let z = -1; z <= 1; z += 1) {
     dimension.getBlock(add(origin, 2, -1, z))?.setType("minecraft:bedrock");
   }
-  for (const task of targets) {
+  for (const task of targets.values()) {
     dimension.getBlock(task.target)?.setType("minecraft:air");
     dimension.getBlock(task.stand)?.setType("minecraft:air");
     dimension.getBlock(add(task.stand, 0, 1, 0))?.setType("minecraft:air");
@@ -96,11 +129,12 @@ function startPhysicalBuild(source) {
     origin,
     blueprint: `${WALL_WIDTH}x${WALL_HEIGHT}-wall`,
     block: BLOCK_TYPE,
-    total_blocks: targets.length,
+    total_blocks: targets.size,
+    policy: "objective-selector-v0",
   });
   emit("BLUEPRINT_LOADED", {
     name: `${WALL_WIDTH}x${WALL_HEIGHT}-wall`,
-    blocks: targets.length,
+    blocks: targets.size,
   });
 
   try {
@@ -116,7 +150,7 @@ function startPhysicalBuild(source) {
       hunger: activePlayer.getComponent("minecraft:player.hunger")?.currentValue ?? null,
       completion: 0,
       correct: 0,
-      missing: targets.length,
+      missing: targets.size,
     });
   } catch (error) {
     emit("EPISODE_FAILED", { stage: "spawn", error: String(error) });
@@ -132,14 +166,14 @@ function startPhysicalBuild(source) {
 
   function comparison() {
     let correct = 0;
-    for (const task of targets) {
+    for (const task of targets.values()) {
       if (dimension.getBlock(task.target)?.typeId === BLOCK_TYPE) correct += 1;
     }
     return {
       correct_blocks: correct,
-      missing_blocks: targets.length - correct,
-      completion: correct / targets.length,
-      exact_completion: correct === targets.length,
+      missing_blocks: targets.size - correct,
+      completion: correct / targets.size,
+      exact_completion: correct === targets.size,
     };
   }
 
@@ -153,8 +187,8 @@ function startPhysicalBuild(source) {
     });
   }
 
-  function verifyPlacement(index, attempt) {
-    const task = targets[index];
+  function verifyPlacement(action, attempt) {
+    const task = targets.get(action);
     const observed = dimension.getBlock(task.target)?.typeId ?? null;
     if (observed === BLOCK_TYPE) {
       emit("BLOCK_PLACEMENT_SUCCEEDED", {
@@ -174,7 +208,7 @@ function startPhysicalBuild(source) {
         missing: state.missing_blocks,
         current_target: task.target,
       });
-      system.runTimeout(() => buildTarget(index + 1), 2);
+      system.runTimeout(buildNextTarget, 2);
       return;
     }
 
@@ -188,14 +222,14 @@ function startPhysicalBuild(source) {
     if (attempt < MAX_ATTEMPTS) {
       metrics.repair_attempts += 1;
       emit("FAULT_DETECTED", { target: task.target, action: "retry", next_attempt: attempt + 1 });
-      system.runTimeout(() => placeTarget(index, attempt + 1), 5);
+      system.runTimeout(() => placeTarget(action, attempt + 1), 5);
     } else {
       finish();
     }
   }
 
-  function placeTarget(index, attempt) {
-    const task = targets[index];
+  function placeTarget(action, attempt) {
+    const task = targets.get(action);
     metrics.total_actions += 1;
     try {
       activePlayer.lookAtBlock(task.support);
@@ -203,8 +237,8 @@ function startPhysicalBuild(source) {
         target: task.target,
         block: BLOCK_TYPE,
         attempt,
-        index,
-        total: targets.length,
+        policy_action: action,
+        total: targets.size,
       });
       const actionAccepted = activePlayer.useItemInSlotOnBlock(
         0,
@@ -216,20 +250,30 @@ function startPhysicalBuild(source) {
     } catch (error) {
       emit("BLOCK_PLACEMENT_FAILED", { target: task.target, attempt, error: String(error) });
     }
-    system.runTimeout(() => verifyPlacement(index, attempt), VERIFY_TICKS);
+    system.runTimeout(() => verifyPlacement(action, attempt), VERIFY_TICKS);
   }
 
-  function buildTarget(index) {
-    if (index >= targets.length) {
+  function buildNextTarget() {
+    const blueprint = Array(25).fill(0);
+    const built = Array(25).fill(0);
+    for (const [action, task] of targets.entries()) {
+      blueprint[action] = 1;
+      if (dimension.getBlock(task.target)?.typeId === BLOCK_TYPE) built[action] = 1;
+    }
+    const decision = selectNeuralObjective(blueprint, built);
+    if (decision.action === COMPLETE_ACTION) {
       finish();
       return;
     }
-    const task = targets[index];
+    const task = targets.get(decision.action);
     emit("OBJECTIVE_SELECTED", {
       target: task.target,
       block: BLOCK_TYPE,
-      index,
-      total: targets.length,
+      policy: "objective-selector-v0",
+      policy_action: decision.action,
+      valid_actions: decision.valid,
+      selected_logit: decision.logits[decision.action],
+      total: targets.size,
     });
     emit("MOVEMENT_STARTED", { destination: task.stand, target: task.target });
     try {
@@ -238,10 +282,10 @@ function startPhysicalBuild(source) {
       emit("EPISODE_FAILED", { stage: "navigation", target: task.target, error: String(error) });
       return;
     }
-    system.runTimeout(() => placeTarget(index, 1), MOVE_TICKS);
+    system.runTimeout(() => placeTarget(decision.action, 1), MOVE_TICKS);
   }
 
-  buildTarget(0);
+  buildNextTarget();
 }
 
 system.afterEvents.scriptEventReceive.subscribe((event) => {

@@ -11,6 +11,7 @@ Archie's first learned component selects the next physically supported target ce
 - Safety: inference masks cells that are outside the blueprint, already filled, or unsupported
 - Vision: not yet included
 - Control scope: objective selection only; navigation, placement, observation, retry, and verification remain deterministic
+- Deployment: weights export to a native JavaScript forward pass in the Bedrock behavior pack
 
 ## Training result
 
@@ -23,3 +24,7 @@ Archie's first learned component selects the next physically supported target ce
 - Epochs: 300
 
 The checkpoint is generated at `checkpoints/objective-selector-v0.pt` and intentionally excluded from Git. This model is a narrow behavioral-cloning milestone, not an end-to-end Minecraft or visual policy.
+
+## Live verification
+
+Minecraft Preview executed the exported network on 2026-09-23. The model selected actions `0, 1, 2, 5, 6, 7, 10, 11, 12`; Archie physically placed and verified all nine blocks with zero failed placements or repair attempts.

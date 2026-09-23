@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-V0 physical 3×3 wall milestone verified in Minecraft Preview on 2026-09-23.
+Objective Selector V0 neural inference physically built and verified a 3×3 wall in Minecraft Preview on 2026-09-23.
 
 ## What works
 
@@ -18,6 +18,7 @@ V0 physical 3×3 wall milestone verified in Minecraft Preview on 2026-09-23.
 - Live Preview multi-block run physically built and verified a complete 3×3 stone wall through nine player-driven placements
 - Headless content-log collector converts structured Bedrock events into crash-safe, sequenced JSONL expert trajectories
 - PyTorch Objective Selector V0 inherits deterministic expert target selection across 15,024 valid wall states; held-out accuracy is 99.63% raw and 100% with physical-validity masking
+- Objective Selector V0 weights export to Bedrock JavaScript; live Preview inference selected policy actions `0, 1, 2, 5, 6, 7, 10, 11, 12` and completed all nine physical placements with zero failures or retries
 
 ## Decisions
 
@@ -42,4 +43,4 @@ python -m archie.demo --obsidian
 
 ## Immediate next step
 
-Integrate Objective Selector V0 behind the construction policy interface, then collect complete physical episodes and add synchronized visual features.
+Connect live Preview telemetry to the simplified Obsidian brain graph, retain the verified neural episode, then add synchronized first-person visual features without removing privileged V0 labels.
