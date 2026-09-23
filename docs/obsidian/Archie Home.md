@@ -6,7 +6,6 @@
 
 - [[Project Overview]]
 - [[Project State]]
-- [[Neural Model]]
 
 ## Current milestone
 
@@ -33,7 +32,7 @@ V0 first-block candidate: the deterministic construction loop is tested, and a p
 - Retry and repair accounting
 - Structured construction and survival telemetry
 - Bounded first-person vision recording with privileged labels
-- Live browser-based Obsidian dashboard
+- Live native Graph View of Archie's learned network and activations
 - Bedrock Preview pack using a physical GameTest `SimulatedPlayer`
 
 ## Honest runtime state

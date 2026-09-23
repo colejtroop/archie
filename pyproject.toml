@@ -18,7 +18,7 @@ ml = ["torch>=2.6"]
 archie-demo = "archie.demo:main"
 archie-collect = "archie.collector:main"
 archie-train-policy = "archie.train_policy:main"
-archie-neural-viz = "archie.neural_viz:main"
+archie-neural-graph = "archie.neural_graph:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
