@@ -30,15 +30,15 @@ Stand on open, flat ground and enter:
 
 Expected behavior:
 
-1. Chat reports `EPISODE_STARTED`.
+1. Chat reports a concise build-start summary; full structured events go to the Preview content log with the `[ArchieTelemetry]` prefix.
 2. A player named **Archie** appears three blocks away.
 3. The pack loads a bottom-up 3×3 stone-wall plan.
 4. For each target, Archie moves into reach, selects stone, and physically uses it on the supporting block.
 5. Each placement is observed and retried up to three times when verification fails.
 6. The complete structure is checked against all nine targets.
-7. Chat reports `EPISODE_COMPLETED` with `exact_completion: true`, nine correct blocks, and zero missing blocks.
+7. Chat reports a concise `9/9 blocks verified` completion summary.
 
-If it fails, retain the complete purple `[Archie]` chat message. Its structured payload identifies the failed stage and API error.
+If it fails, retain the red `[Archie]` summary. Detailed structured diagnostics remain in the Preview content log.
 
 For manifest/load troubleshooting, temporarily set the script module entry to `scripts/diagnostic.js`. A successful `/scriptevent archie:ping` returns `[Archie] DIAGNOSTIC_OK`.
 

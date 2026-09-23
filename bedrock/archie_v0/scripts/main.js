@@ -35,7 +35,22 @@ function emit(eventType, payload = {}) {
     timestamp_ticks: system.currentTick,
     payload,
   });
-  world.sendMessage(`§5[Archie]§r ${event}`);
+  console.info(`[ArchieTelemetry] ${event}`);
+
+  if (eventType === "EPISODE_STARTED") {
+    world.sendMessage(`§5[Archie]§r Starting ${payload.blueprint} (${payload.total_blocks} blocks).`);
+  } else if (eventType === "STATE_UPDATED" && payload.correct > 0) {
+    const percent = Math.round(payload.completion * 100);
+    world.sendMessage(`§5[Archie]§r Progress: ${payload.correct}/${payload.correct + payload.missing} blocks (${percent}%).`);
+  } else if (eventType === "FAULT_DETECTED") {
+    world.sendMessage(`§6[Archie] Retrying block; attempt ${payload.next_attempt}/${MAX_ATTEMPTS}.§r`);
+  } else if (eventType === "EPISODE_COMPLETED") {
+    world.sendMessage(`§a[Archie] Complete: ${payload.correct_blocks}/${payload.correct_blocks + payload.missing_blocks} blocks verified.§r`);
+  } else if (eventType === "EPISODE_FAILED") {
+    const correct = payload.correct_blocks ?? 0;
+    const missing = payload.missing_blocks ?? "?";
+    world.sendMessage(`§c[Archie] Build stopped: ${correct} correct, ${missing} missing.§r`);
+  }
 }
 
 function disconnectActivePlayer() {

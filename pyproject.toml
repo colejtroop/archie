@@ -11,8 +11,13 @@ requires-python = ">=3.11"
 license = { text = "MIT" }
 dependencies = []
 
+[project.optional-dependencies]
+ml = ["torch>=2.6"]
+
 [project.scripts]
 archie-demo = "archie.demo:main"
+archie-collect = "archie.collector:main"
+archie-train-policy = "archie.train_policy:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -18,8 +18,10 @@ class EventType(str, Enum):
     BLOCK_PLACEMENT_ATTEMPTED = "BLOCK_PLACEMENT_ATTEMPTED"
     BLOCK_PLACEMENT_SUCCEEDED = "BLOCK_PLACEMENT_SUCCEEDED"
     BLOCK_PLACEMENT_FAILED = "BLOCK_PLACEMENT_FAILED"
+    ACTION_DISPATCHED = "ACTION_DISPATCHED"
     FAULT_DETECTED = "FAULT_DETECTED"
     EPISODE_COMPLETED = "EPISODE_COMPLETED"
+    EPISODE_FAILED = "EPISODE_FAILED"
 
 
 @dataclass(frozen=True)
@@ -54,4 +56,8 @@ class Telemetry:
             "".join(json.dumps(event.to_dict(), separators=(",", ":")) + "\n" for event in self.events),
             encoding="utf-8",
         )
+
+    def snapshot(self) -> list[Event]:
+        with self._lock:
+            return list(self.events)
 

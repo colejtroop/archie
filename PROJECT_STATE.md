@@ -16,6 +16,8 @@ V0 physical 3×3 wall milestone verified in Minecraft Preview on 2026-09-23.
 - Packageable Preview behavior pack spawns a `SimulatedPlayer`, navigates, places via inventory interaction, observes the result, and emits structured chat telemetry
 - Live Preview run completed with `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` (`exact_completion: true`, one correct block, zero missing blocks)
 - Live Preview multi-block run physically built and verified a complete 3×3 stone wall through nine player-driven placements
+- Headless content-log collector converts structured Bedrock events into crash-safe, sequenced JSONL expert trajectories
+- PyTorch Objective Selector V0 inherits deterministic expert target selection across 15,024 valid wall states; held-out accuracy is 99.63% raw and 100% with physical-validity masking
 
 ## Decisions
 
@@ -24,6 +26,7 @@ V0 physical 3×3 wall milestone verified in Minecraft Preview on 2026-09-23.
 - Use the beta channel versions reported by the running Preview manifest loader (`2.12.0-beta` and `1.0.0-beta`). Fully qualified `.28` package versions are rejected in the pack manifest.
 - Treat privileged state as V0/V1 ground truth and labels, never as the permanent perception contract.
 - Store no raw frames by default. Recording must be enabled, sampled, and capped.
+- Keep learned scope explicit: Objective Selector V0 chooses the next supported blueprint cell; it does not yet control navigation, placement, or visual perception.
 
 ## Commands
 
@@ -39,4 +42,4 @@ python -m archie.demo --obsidian
 
 ## Immediate next step
 
-Record synchronized expert trajectories from the verified physical builder, then introduce the first learned construction policy without blocking continued deterministic validation.
+Integrate Objective Selector V0 behind the construction policy interface, then collect complete physical episodes and add synchronized visual features.
