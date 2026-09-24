@@ -1,18 +1,18 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Archie V0.4.5 Spatial Builder",
+    "name": "Archie V0.5.0 Strategy Planner",
     "description": "Blueprint input, native mcstructure loading, responsive movement, placement, observation, and verification for Archie.",
-    "uuid": "d6eab32d-f5cb-49f7-a9b2-18c136c15a4d",
-    "version": [0, 4, 5],
+    "uuid": "3c4930b8-75c9-4da4-bb36-7ca19db2c95d",
+    "version": [0, 5, 0],
     "min_engine_version": [1, 26, 60]
   },
   "modules": [
     {
       "type": "script",
       "language": "javascript",
-      "uuid": "85c4a62b-19ed-4301-bc5f-0fa9681ac8a3",
-      "version": [0, 4, 5],
+      "uuid": "4621049b-e327-4322-b5f6-ea0aff9f0f3d",
+      "version": [0, 5, 0],
       "entry": "scripts/main.js"
     }
   ],

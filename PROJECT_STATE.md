@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Vision-Fused Policy V1 now controls objective selection live in Minecraft Preview through synchronized first-person frames and safe inherited state. Its first physical run applied all ten fused decisions and completed the wall exactly. The Preview body now accepts validated planar blueprint patterns and uses readiness-driven movement and verification instead of fixed per-block delays; both changes await physical validation.
+Construction Strategy V1 ranks physically meaningful access plans before a spatial build: ground, jump, existing vertical support, or temporary scaffold. The selected method is now part of the validated Preview contract, structured telemetry, and Obsidian brain trace. The next controller milestone must physically place, climb, and remove any selected scaffold rather than granting elevated reach.
 
 ## What works
 
@@ -42,6 +42,11 @@ Vision-Fused Policy V1 now controls objective selection live in Minecraft Previe
 - The first placement-ray test showed the one-block front vantage could overlap the next target and that five-tick successive uses were rejected. The corrected controller stands two blocks clear and targets a reliable ten-tick click cadence.
 - V0.4.4 physically completed the imported 3×3×3 cobblestone structure exactly: 27/27 blocks, zero failed placements, and zero retries. Its 66.2-second runtime was dominated by 20 unnecessary arrival repositions at 1.02 blocks; the safe cleared-vantage tolerance is now 1.25 blocks.
 - Obsidian's native brain graph now maintains exactly one bright `brain-current` node and advances it through spatial input, selected cell, placement-controller branch, verified state, and completion as live Minecraft telemetry arrives.
+- V0.4.6 physically verified three post-layer inspection events with a 27/27 build in 35.9 seconds, but captured frames showed the human avatar obstructing the straight-on viewpoint. Inspection now uses a diagonal offset and emits explicit `INSPECT_LAYER_n` frame labels.
+- Compact Obsidian nodes use filesystem-safe names and replace superseded targets, progress, and inspection states instead of accumulating full episode history in Graph View.
+- Construction Strategy V1 exposes a stable neural-training feature vector and ranks orientation/access candidates by movement, camera turns, scaffold material, and trapping risk. Tests verify that existing vertical support beats scaffolding and that a free-standing 9×9 wall requires scaffolding.
+- Structure loading now transmits the selected strategy to Preview, which validates it and emits `STRATEGY_SELECTED`; Obsidian displays the active ground, jump, wall, or scaffold choice.
+- Fused-policy training and evaluation accept controlled built-state dropout/ablation so dependence on privileged progress inputs can be measured rather than assumed.
 - First live fused run: 10/10 V1 decisions applied (nine placements plus complete), zero fallbacks/rejections, average decision latency ~0.33 s, maximum ~0.65 s, and exact 9/9 physical completion with zero placement failures or retries.
 
 ## Decisions
@@ -69,4 +74,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Physically test at least two supplied blueprint patterns and measure end-to-end build time plus per-stage latency. Then expand the planar input contract toward native `.mcstructure` conversion and a spatial planner without regressing the verified live V1 policy.
+Implement a reach gate plus physical temporary-scaffold placement, climbing, and cleanup. Validate it on a structure whose upper layer cannot be reached from ground level, then use the resulting trajectories as expert labels for the learned strategy ranker.

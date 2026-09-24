@@ -65,6 +65,23 @@ class LiveFrameLabels:
                 self.world["policy_fallback"] = dict(payload)
             elif event.event_type is EventType.MOVEMENT_STARTED:
                 self.current_action = "MOVE"
+            elif event.event_type is EventType.VIEWPOINT_SELECTED:
+                self.current_target = dict(payload.get("focus") or {})
+                self.current_action = f"VIEW_LAYER_{payload.get('layer')}"
+                self.world["inspection"] = {
+                    "layer": payload.get("layer"),
+                    "destination": payload.get("destination"),
+                    "status": "MOVING",
+                }
+            elif event.event_type is EventType.VISUAL_CHECK:
+                self.current_target = dict(payload.get("focus") or {})
+                self.current_action = f"INSPECT_LAYER_{payload.get('layer')}"
+                self.world["inspection"] = {
+                    "layer": payload.get("layer"),
+                    "status": "CAPTURING",
+                    "visible": payload.get("visible"),
+                    "reason": payload.get("reason"),
+                }
             elif event.event_type is EventType.PLACEMENT_DECISION:
                 self.current_action = f"PLACEMENT_{payload.get('decision')}"
             elif event.event_type is EventType.BLOCK_PLACEMENT_ATTEMPTED:

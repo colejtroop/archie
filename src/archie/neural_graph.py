@@ -66,7 +66,10 @@ class ObsidianNeuralGraph:
             + " ".join(f"[[{link}]]" for link in links)
             + "\n"
         )
-        (self.root / f"{name}.md").write_text(content, encoding="utf-8")
+        safe_name = "".join("-" if character in '<>:"/\\|?*' else character for character in name).strip(" .")
+        if not safe_name:
+            raise ValueError("Obsidian node name contains no filesystem-safe characters")
+        (self.root / f"{safe_name}.md").write_text(content, encoding="utf-8")
 
     def _clear_current_tags(self) -> None:
         """Keep exactly one graph node illuminated as execution advances."""
@@ -79,6 +82,12 @@ class ObsidianNeuralGraph:
             content = content.replace(", brain-current", "").replace("brain-current, ", "")
             path.write_text(content, encoding="utf-8")
 
+    def _remove_nodes(self, *patterns: str) -> None:
+        for pattern in patterns:
+            for path in self.root.glob(pattern):
+                if self._is_generated(path):
+                    path.unlink()
+
     def materialize(self) -> None:
         old_root = self.vault / "Archie" / "Neural Network"
         if old_root.exists():
@@ -89,25 +98,7 @@ class ObsidianNeuralGraph:
         for path in self.root.glob("*.md"):
             if self._is_generated(path):
                 path.unlink()
-        self._note("Objective - build 3x3 wall", "objective", [], "The construction objective Archie is pursuing.")
-        self._note(
-            "Architecture - objective selector",
-            "model",
-            ["Objective - build 3x3 wall"],
-            "Chooses the next supported blueprint cell from blueprint and privileged built-state masks.",
-        )
-        self._note(
-            "Architecture - placement controller",
-            "model",
-            ["Architecture - objective selector"],
-            "Executes each objective through approach, place, verify, reposition, retry, advance, or abort.",
-        )
-        self._note(
-            "Architecture - spatial blueprint planner",
-            "model",
-            ["Objective - build 3x3 wall", "Architecture - placement controller"],
-            "Orders imported 3D cells into supported floor, lane, and far-to-near placement rays.",
-        )
+        self._note("Goal", "objective", [], "Build the active blueprint exactly.")
         self._configure_graph()
 
     def _configure_graph(self) -> None:
@@ -119,7 +110,7 @@ class ObsidianNeuralGraph:
             "showTags": False,
             "showAttachments": False,
             "hideUnresolved": True,
-            "showOrphans": True,
+            "showOrphans": False,
             "collapse-color-groups": False,
             "colorGroups": [
                 {"query": "tag:#brain-current", "color": {"a": 1, "rgb": 16766720}},
@@ -133,22 +124,23 @@ class ObsidianNeuralGraph:
             ],
             "collapse-display": False,
             "showArrow": True,
-            "textFadeMultiplier": -3,
-            "nodeSizeMultiplier": 1.15,
-            "lineSizeMultiplier": 0.8,
+            "textFadeMultiplier": -2,
+            "nodeSizeMultiplier": 1.35,
+            "lineSizeMultiplier": 1.1,
             "collapse-forces": False,
-            "centerStrength": 0.5,
-            "repelStrength": 16,
+            "centerStrength": 0.7,
+            "repelStrength": 8,
             "linkStrength": 1,
-            "linkDistance": 180,
-            "scale": 0.75,
+            "linkDistance": 90,
+            "scale": 0.9,
             "close": True,
         }
         graph_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     def _clear_live_notes(self) -> None:
+        persistent = {"Goal.md"}
         for path in self.root.glob("*.md"):
-            if self._is_generated(path) and not path.name.startswith(("Objective -", "Architecture -")):
+            if self._is_generated(path) and path.name not in persistent:
                 path.unlink()
 
     @staticmethod
@@ -174,12 +166,12 @@ class ObsidianNeuralGraph:
         built_count = int(sum(built))
 
         self._clear_live_notes()
-        objective = "Objective - build 3x3 wall"
-        blueprint_name = "Blueprint - 9 stone blocks"
-        state_name = f"Observed build - {built_count} of 9 complete"
-        feature_1 = "Learned privileged-state features"
-        feature_2 = "Learned construction features"
-        valid_name = f"Valid placements - {len(choices)} choices"
+        objective = "Goal"
+        blueprint_name = "Blueprint"
+        state_name = f"Built {built_count}-9"
+        feature_1 = "State"
+        feature_2 = "Features"
+        valid_name = f"Options {len(choices)}"
 
         self._note(blueprint_name, "input", [objective], "The 5x5 blueprint mask supplied to the model.")
         self._note(state_name, "state", [blueprint_name], "Privileged V0 observation of blocks already placed.")
@@ -192,15 +184,15 @@ class ObsidianNeuralGraph:
         self._note(valid_name, "decision", [feature_2], valid_body)
 
         if action == COMPLETE_ACTION:
-            self._note("Decision - structure complete", "complete", [valid_name], "The policy selected COMPLETE.", True)
+            self._note("Complete", "complete", [valid_name], "The policy selected COMPLETE.", True)
         else:
             x, y = action % MAX_WIDTH, action // MAX_WIDTH
             score = float(logits[action].item())
-            target_name = f"Decision - place stone at x{x} y{y}"
+            target_name = f"Target {x},{y}"
             self.current_target_note = target_name
             self.placement_note = target_name
             self._note(target_name, "decision", [valid_name], f"Selected policy logit: {score:.3f}.", True)
-            self._note("Action - place block", "action", [target_name], "Dispatch the selected placement to Minecraft.")
+            self._note("Place", "action", [target_name], "Dispatch the selected placement to Minecraft.")
         return action
 
     def consume(self, event: TelemetryEvent) -> None:
@@ -217,22 +209,61 @@ class ObsidianNeuralGraph:
             self.spatial_episode = event.payload.get("policy") == "spatial-blueprint-planner-v0"
             if self.spatial_episode:
                 self._clear_live_notes()
-                for path in self.root.glob("Objective - *.md"):
-                    if self._is_generated(path):
-                        path.unlink()
-                objective = f"Objective - build {self.blueprint_name}"
-                blueprint = f"Blueprint - {self.blueprint_name} ({self.total_blocks} blocks)"
+                objective = "Goal"
+                blueprint = f"Input {self.total_blocks}"
                 self._note(objective, "objective", [], "The imported spatial construction objective.")
                 self._note(
                     blueprint,
                     "input",
-                    [objective, "Architecture - spatial blueprint planner"],
+                    [objective],
                     "Validated cells and palette decoded from the Bedrock .mcstructure input.",
+                )
+                self._note(
+                    "Plan",
+                    "model",
+                    [blueprint],
+                    "Order supported cells into efficient far-to-near placement rays.",
                     True,
                 )
             else:
-                self._note("Objective - build 3x3 wall", "objective", [], "The construction objective Archie is pursuing.")
+                self._note("Goal", "objective", [], "Build the active blueprint exactly.")
                 self.step([0, 0, 0])
+            return
+        if event.event_type is EventType.VIEWPOINT_SELECTED:
+            self._remove_nodes("Inspect.md")
+            note = "Inspect"
+            self._note(
+                note,
+                "action",
+                [self.placement_note or "Progress"],
+                f"Move to inspection viewpoint: {event.payload.get('destination')}. Focus: {event.payload.get('focus')}.",
+                True,
+            )
+            self.placement_note = note
+            return
+        if event.event_type is EventType.STRATEGY_SELECTED:
+            method = str(event.payload.get("access", "unknown")).replace("existing_support", "wall")
+            label = method.capitalize()
+            self._note(
+                label,
+                "decision",
+                ["Plan"],
+                f"Approach from {event.payload.get('approach')}; temporary scaffold blocks: "
+                f"{event.payload.get('scaffold_blocks', 0)}.",
+                True,
+            )
+            self.placement_note = label
+            return
+        if event.event_type is EventType.VISUAL_CHECK:
+            note = "Observe"
+            self._note(
+                note,
+                "state",
+                [self.placement_note or "Inspect"],
+                str(event.payload.get("reason", "Inspection frame synchronized.")),
+                True,
+            )
+            self.placement_note = note
             return
         if event.event_type is EventType.POLICY_DECISION_APPLIED:
             self.applied_decisions += 1
@@ -251,11 +282,12 @@ class ObsidianNeuralGraph:
             self.last_policy = policy
             if self.spatial_episode:
                 target = event.payload.get("target")
-                note = f"Spatial objective - action {self.current_action}"
+                note = "Target"
+                self._remove_nodes("Target.md", "Approach.md", "Place.md", "Verify.md", "Reposition.md", "Retry.md", "Advance.md", "Progress.md", "Inspect.md", "Observe.md")
                 self._note(
                     note,
                     "decision",
-                    ["Architecture - spatial blueprint planner"],
+                    ["Plan"],
                     f"Selected the next supported cell at {target} in the active placement ray.",
                     True,
                 )
@@ -268,17 +300,17 @@ class ObsidianNeuralGraph:
                 if x < len(heights):
                     heights[x] = max(heights[x], y + 1)
             predicted = self.step(heights)
-            source_note = f"Policy source - {policy}"
+            source_note = "Policy"
             self._note(
                 source_note,
                 "model",
-                [self.current_target_note or "Architecture - objective selector"],
+                [self.current_target_note or "Selector"],
                 "The policy source that selected the live objective for this state revision.",
                 True,
             )
             self.placement_note = source_note
             if self.current_action is not None and predicted != self.current_action:
-                title = "Vision changed objective" if policy == "vision-fused-policy-v1" else "Warning - policy mismatch"
+                title = "Override" if policy == "vision-fused-policy-v1" else "Mismatch"
                 self._note(
                     title,
                     "action",
@@ -291,12 +323,20 @@ class ObsidianNeuralGraph:
             decision = str(event.payload.get("decision", "UNKNOWN")).lower()
             reason = str(event.payload.get("reason", "No reason reported."))
             target = event.payload.get("target")
-            note = f"Placement controller - {decision}"
-            parent = self.placement_note or self.current_target_note or "Architecture - placement controller"
+            note = decision.capitalize()
+            stage_parent = {
+                "approach": "Target",
+                "place": "Approach",
+                "verify": "Place",
+                "reposition": "Verify",
+                "retry": "Reposition",
+                "advance": "Verify",
+            }
+            parent = stage_parent.get(decision, self.placement_note or self.current_target_note or "Plan")
             self._note(
                 note,
                 "action",
-                [parent, "Architecture - placement controller"],
+                [parent],
                 f"Target: {target}. Reason: {reason}",
                 True,
             )
@@ -305,12 +345,12 @@ class ObsidianNeuralGraph:
         if event.event_type is EventType.BLOCK_PLACEMENT_SUCCEEDED and self.current_action is not None:
             self.built_actions.add(self.current_action)
             if self.spatial_episode:
-                progress = f"Observed build - {len(self.built_actions)} of {self.total_blocks} complete"
+                progress = "Progress"
                 self._note(
                     progress,
                     "state",
-                    [self.placement_note or "Architecture - placement controller"],
-                    "Minecraft confirmed the intended block at the selected spatial target.",
+                    [self.placement_note or "Verify"],
+                    f"Minecraft confirmed {len(self.built_actions)} of {self.total_blocks} intended blocks.",
                     True,
                 )
                 self.placement_note = progress
@@ -326,9 +366,9 @@ class ObsidianNeuralGraph:
             if not self.spatial_episode:
                 self.step([3, 3, 3])
             self._note(
-                f"Episode policy - {self.last_policy}",
+                "Complete",
                 "complete",
-                [self.placement_note or "Architecture - placement controller"],
+                [self.placement_note or "Controller"],
                 f"Completed {len(self.built_actions)} of {self.total_blocks} blocks. "
                 f"Applied external decisions: {self.applied_decisions}. Fallbacks: {self.fallback_decisions}. "
                 f"Rejections: {self.rejected_decisions}.",
@@ -336,7 +376,7 @@ class ObsidianNeuralGraph:
             )
             return
         if event.event_type is EventType.EPISODE_FAILED:
-            self._note("Build failed", "action", ["Learned construction features"], str(event.payload), True)
+            self._note("Failed", "action", ["Features"], str(event.payload), True)
 
     def run_demo(self, stop: Event) -> None:
         heights = [0, 0, 0]

@@ -49,6 +49,8 @@ archie-load-structure "blueprints\cobblestone_3x3x3.mcstructure"
 
 Then run `/connect localhost:19131` in Preview. When chat confirms the spatial blueprint loaded, run `/scriptevent archie:start`. Spatial inputs are currently bounded to 5×5×5, 64 blocks, nine palette entries, empty block-state maps, and vertically supported cells. Spatial target ordering is deterministic: floor-by-floor, lateral lane-by-lane, and far-to-near within each lane. The learned 25-action planar objective selector remains isolated until its action representation is generalized.
 
+The loader now ranks ground, jump, existing-vertical-support, and temporary-scaffold strategies before sending a blueprint. Its selected access method, approach direction, estimated motion, scaffold cost, camera turns, and trapping risk are validated by Preview, emitted as `STRATEGY_SELECTED`, and displayed in Obsidian. Existing support can be labeled during V1 collection with `--existing-support north|east|south|west`; this is privileged training context, not a permanent perception input. Strategy execution is not yet allowed to bypass normal reach: physical scaffold placement, climbing, and cleanup are the next controller milestone.
+
 ### Opt-in first-person capture
 
 Archie's camera mirror is always off by default. To prepare a bounded, labeled capture run:
@@ -79,6 +81,8 @@ Expected behavior:
 Movement and placement verification are readiness-driven. Archie checks every two ticks while navigating and every tick after placement, while retaining the original bounded timeouts and retry policy. This removes the former fixed 40-tick movement delay and 10-tick success delay without weakening failure detection.
 
 For compact spatial structures up to three blocks wide, the placement controller reuses one central construction vantage two blocks clear of the front face. It completes each depth lane from far to near, minimizing view-angle changes between clicks instead of sweeping the entire back plane. Spatial arrival uses a 1.25-block radius at that cleared vantage so normal navigation jitter does not trigger reposition timeouts. An eight-tick aim/cooldown phase keeps successive clicks on Minecraft's reliable 10-tick item-use cadence. Wider structures currently use per-column vantages; learned viewpoint selection remains a later perception/control skill.
+
+After each spatial layer, Archie steps back to a diagonal inspection viewpoint that avoids the requesting player's original position, aims at the completed layer, emits `VIEWPOINT_SELECTED` and `VISUAL_CHECK`, and holds the camera for one second. Retained frames are explicitly labeled `INSPECT_LAYER_n`, but visibility remains unknown until a learned visual accessibility check exists. Placement still uses privileged verification as its safety shield.
 
 If it fails, retain the red `[Archie]` summary. Detailed structured diagnostics remain in the Preview content log.
 

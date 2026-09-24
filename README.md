@@ -28,6 +28,10 @@ Archie is a research platform for an embodied neural agent that physically const
 - Validated player-supplied blueprint patterns for named 1-5 by 1-5 supported structures in the current learned construction plane
 - Readiness-driven movement and placement verification, replacing the fixed per-block delays that dominated live build time
 - Dependency-free Bedrock `.mcstructure` ingestion with validated spatial plans up to 5×5×5 and a local `/connect` loader
+- Camera-aware layer inspection viewpoints that step back, aim at completed work, and retain synchronized frames for future learned visibility checks
+- Compact live Obsidian graph labels with one illuminated execution node advancing through planning, control, observation, and completion
+- Construction-strategy ranking across ground, jump, existing-support, and temporary-scaffold access, with explicit travel, camera, material, and trapping costs
+- Configurable built-state dropout and evaluation ablation for measuring how strongly the fused policy still depends on privileged progress state
 
 ### Experimental
 
@@ -36,7 +40,7 @@ Archie is a research platform for an embodied neural agent that physically const
 ### Planned
 
 - Multi-episode visual dataset covering varied lighting, weather, viewpoints, and placement failures
-- Deterministic scaffolding and repair
+- Physical placement, climbing, and cleanup of planner-selected temporary scaffolding
 - Expert trajectories and a PyTorch visual/construction policy
 
 ## Quick start
@@ -64,9 +68,9 @@ The intended live Bedrock implementation uses Microsoft's experimental GameTest 
 
 ## Roadmap
 
-1. Physically validate blueprint input and the readiness-driven speed path across multiple structures.
-2. Generalize the 25-action planar policy into a spatial blueprint planner.
-3. Measure controlled privileged-input corruption and ablation while preserving safety masks.
-4. Add deterministic scaffolding and repair curricula.
+1. Physically execute planner-selected jump and temporary-scaffold strategies.
+2. Generalize the learned 25-action planar objective selector to rank spatial targets and construction strategies.
+3. Run controlled privileged-input ablations while preserving physical safety masks.
+4. Train scaffold placement, climbing, cleanup, and recovery curricula.
 5. Expand visual data across structures, viewpoints, mobs, failures, and worlds.
 

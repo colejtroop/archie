@@ -22,6 +22,7 @@ const VERIFY_TICKS = 10;
 const AIM_SETTLE_TICKS = 8;
 const MOVE_TIMEOUT_TICKS = 40;
 const MOVEMENT_POLL_TICKS = 2;
+const INSPECTION_HOLD_TICKS = 20;
 const VISION_SETTLE_TICKS = 240;
 const POLICY_TIMEOUT_TICKS = 100;
 const POLICY_WIDTH = 5;
@@ -123,7 +124,17 @@ function parseStructure(message) {
   // lane-by-lane, far-to-near. Archie can keep nearly the same viewing angle
   // and click successive blocks toward its construction vantage.
   cells.sort((a, b) => a[1] - b[1] || a[0] - b[0] || b[2] - a[2]);
-  return Object.freeze({ mode: "spatial", name, palette, cells });
+  const strategy = value.strategy;
+  if (!strategy || !["ground", "jump", "existing_support", "scaffold"].includes(strategy.access)) {
+    throw new Error("strategy access method is missing or unsupported");
+  }
+  if (!["north", "east", "south", "west"].includes(strategy.approach)) {
+    throw new Error("strategy approach is missing or unsupported");
+  }
+  if (!Number.isInteger(strategy.scaffold_blocks) || strategy.scaffold_blocks < 0) {
+    throw new Error("strategy scaffold count is invalid");
+  }
+  return Object.freeze({ mode: "spatial", name, palette, cells, strategy: Object.freeze(strategy) });
 }
 
 function stopVisionCamera(requestingPlayer) {
@@ -264,6 +275,8 @@ function emit(eventType, payload = {}) {
     || eventType === "POLICY_DECISION_APPLIED"
     || eventType === "POLICY_DECISION_REJECTED"
     || eventType === "POLICY_FALLBACK_USED"
+    || eventType === "VIEWPOINT_SELECTED"
+    || eventType === "VISUAL_CHECK"
     || eventType === "EPISODE_COMPLETED"
     || eventType === "EPISODE_FAILED"
   ) {
@@ -309,6 +322,7 @@ function startPhysicalBuild(source) {
 
   const episode = `${system.currentTick}-${++episodeCounter}`;
   let stateRevision = 0;
+  let lastInspectedLayer = -1;
   const blueprintDefinition = selectedBlueprint;
   const spatial = blueprintDefinition.mode === "spatial";
   const blueprintRows = spatial ? null : blueprintDefinition.rows;
@@ -338,7 +352,9 @@ function startPhysicalBuild(source) {
         stand: add(origin, 0, 0, vantageLateral),
         block: blueprintDefinition.palette[paletteIndex].name,
         slot: paletteIndex,
+        relativeX: x,
         relativeY: y,
+        relativeDepth: depth,
       });
     });
   } else {
@@ -352,7 +368,9 @@ function startPhysicalBuild(source) {
           stand: add(origin, 1, 0, z),
           block: blueprintBlock,
           slot: 0,
+          relativeX: x,
           relativeY: y,
+          relativeDepth: 0,
         });
       }
     }
@@ -384,6 +402,7 @@ function startPhysicalBuild(source) {
     block: spatial ? undefined : blueprintBlock,
     palette: spatial ? blueprintDefinition.palette : undefined,
   });
+  if (spatial) emit("STRATEGY_SELECTED", blueprintDefinition.strategy);
 
   try {
     activePlayer = spawnSimulatedPlayer(
@@ -419,6 +438,58 @@ function startPhysicalBuild(source) {
     repair_attempts: 0,
     repair_successes: 0,
   };
+
+  function inspectLayer(layer, callback, waitedTicks = 0) {
+    // Observe diagonally so the requesting player's original position is not
+    // between Archie's camera and the completed structure.
+    const inspection = add(origin, -2, 0, -(Math.floor(blueprintWidth / 2) + 3));
+    const candidates = [...targets.values()].filter((task) => task.relativeY === layer);
+    const focus = candidates.reduce((best, task) => {
+      if (!best) return task;
+      const taskScore = Math.abs(task.relativeX - Math.floor(blueprintWidth / 2)) + task.relativeDepth;
+      const bestScore = Math.abs(best.relativeX - Math.floor(blueprintWidth / 2)) + best.relativeDepth;
+      return taskScore < bestScore ? task : best;
+    }, null);
+    if (!focus) {
+      callback();
+      return;
+    }
+    if (waitedTicks === 0) {
+      emit("VIEWPOINT_SELECTED", { purpose: "layer inspection", layer, destination: inspection, focus: focus.target });
+      placementDecision("OBSERVE", `step back to inspect completed layer ${layer + 1}`, focus.target);
+      try {
+        activePlayer.navigateToLocation(inspection, 1.0);
+      } catch (error) {
+        emit("VISUAL_CHECK", { layer, visible: false, reason: String(error) });
+        callback();
+        return;
+      }
+    }
+    if (distance(activePlayer.location, inspection) <= 1.25) {
+      try {
+        activePlayer.lookAtBlock(focus.target);
+        emit("VISUAL_CHECK", {
+          layer,
+          visible: null,
+          reason: "camera-aware inspection sample captured; learned visibility judgment pending",
+          focus: focus.target,
+        });
+      } catch (error) {
+        emit("VISUAL_CHECK", { layer, visible: false, reason: String(error), focus: focus.target });
+      }
+      system.runTimeout(callback, INSPECTION_HOLD_TICKS);
+      return;
+    }
+    if (waitedTicks >= MOVE_TIMEOUT_TICKS) {
+      emit("VISUAL_CHECK", { layer, visible: false, reason: "inspection viewpoint was unreachable" });
+      callback();
+      return;
+    }
+    system.runTimeout(
+      () => inspectLayer(layer, callback, waitedTicks + MOVEMENT_POLL_TICKS),
+      MOVEMENT_POLL_TICKS,
+    );
+  }
 
   function comparison() {
     let correct = 0;
@@ -477,6 +548,17 @@ function startPhysicalBuild(source) {
         built_actions: state.built_actions,
       });
       stateRevision += 1;
+      if (spatial) {
+        const layerRemaining = [...targets.values()].some(
+          (candidate) => candidate.relativeY === task.relativeY
+            && dimension.getBlock(candidate.target)?.typeId !== candidate.block,
+        );
+        if (!layerRemaining && task.relativeY > lastInspectedLayer) {
+          lastInspectedLayer = task.relativeY;
+          system.runTimeout(() => inspectLayer(task.relativeY, buildNextTarget), 2);
+          return;
+        }
+      }
       system.runTimeout(buildNextTarget, 2);
       return;
     }
@@ -761,6 +843,6 @@ system.afterEvents.scriptEventReceive.subscribe((event) => {
 });
 
 world.afterEvents.worldLoad.subscribe(() => {
-  world.sendMessage("§5[Archie V0.4.5]§r Ready. Run §f/scriptevent archie:start§r as an operator.");
+  world.sendMessage("§5[Archie V0.4.7]§r Ready. Run §f/scriptevent archie:start§r as an operator.");
 });
 

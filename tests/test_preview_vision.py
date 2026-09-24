@@ -45,6 +45,26 @@ class LiveFrameLabelsTests(unittest.TestCase):
         self.assertFalse(labels.snapshot()[0])
         self.assertEqual(labels.snapshot()[1], 1)
 
+    def test_labels_layer_inspection_frames(self) -> None:
+        labels = LiveFrameLabels()
+        labels.consume(Event(EventType.EPISODE_STARTED, {"vision_capture": True}, "now"))
+        labels.consume(Event(EventType.VIEWPOINT_SELECTED, {
+            "layer": 2,
+            "destination": {"x": -2, "y": 0, "z": -4},
+            "focus": {"x": 2, "y": 2, "z": 0},
+        }, "now"))
+        self.assertEqual(labels.snapshot()[2].current_action, "VIEW_LAYER_2")
+        labels.consume(Event(EventType.VISUAL_CHECK, {
+            "layer": 2,
+            "visible": None,
+            "reason": "learned judgment pending",
+            "focus": {"x": 2, "y": 2, "z": 0},
+        }, "now"))
+        snapshot = labels.snapshot()[2]
+        self.assertEqual(snapshot.current_action, "INSPECT_LAYER_2")
+        self.assertEqual(snapshot.current_target["y"], 2)
+        self.assertEqual(snapshot.world["inspection"]["status"], "CAPTURING")
+
 
 if __name__ == "__main__":
     unittest.main()
