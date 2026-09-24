@@ -45,6 +45,19 @@ def masked_action_loss(logits, features, targets):
     return functional.cross_entropy(selected_logits, targets[keep])
 
 
+def ablate_built_features(features, fraction: float, generator=None):
+    import torch
+
+    if not 0 <= fraction <= 1:
+        raise ValueError("built-state ablation fraction must be between zero and one")
+    result = features.clone()
+    if fraction == 0:
+        return result
+    random = torch.rand(result[:, 25:].shape, generator=generator, device=result.device)
+    result[:, 25:][(result[:, 25:] > 0) & (random < fraction)] = 0
+    return result
+
+
 def main() -> None:
     import torch
     from torch.utils.data import DataLoader
@@ -57,6 +70,7 @@ def main() -> None:
     parser.add_argument("--epochs", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--seed", type=int, default=7)
+    parser.add_argument("--built-dropout", type=float, default=0.0)
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -82,7 +96,8 @@ def main() -> None:
         labeled = 0
         for images, features, targets in DataLoader(train, batch_size=args.batch_size, shuffle=True):
             optimizer.zero_grad()
-            loss = masked_action_loss(model(images, features)["logits"], features, targets)
+            model_features = ablate_built_features(features, args.built_dropout)
+            loss = masked_action_loss(model(images, model_features)["logits"], features, targets)
             loss.backward()
             optimizer.step()
             count = int((targets >= 0).sum().item())
@@ -95,7 +110,8 @@ def main() -> None:
     labeled = 0
     with torch.no_grad():
         for images, features, targets in DataLoader(validation, batch_size=args.batch_size):
-            loss = masked_action_loss(model(images, features)["logits"], features, targets)
+            model_features = ablate_built_features(features, args.built_dropout)
+            loss = masked_action_loss(model(images, model_features)["logits"], features, targets)
             count = int((targets >= 0).sum().item())
             validation_loss += float(loss.item()) * count
             labeled += count
@@ -106,6 +122,7 @@ def main() -> None:
         "training_episodes": episode_ids[:-1],
         "validation_episodes": [validation_id],
         "validation_loss": validation_loss / max(labeled, 1),
+        "built_dropout": args.built_dropout,
     }, args.output)
     print(f"saved={args.output} validation_loss={validation_loss / max(labeled, 1):.5f}")
 

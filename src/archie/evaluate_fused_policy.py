@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .policy import valid_actions
 from .train_fused_policy import FusedSampleDataset
+from .train_fused_policy import ablate_built_features
 from .visual_model import create_fused_policy, load_episode_records
 
 
@@ -23,6 +24,8 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=None)
     parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--built-ablation", type=float, default=0.0)
+    parser.add_argument("--seed", type=int, default=7)
     args = parser.parse_args()
 
     checkpoint = torch.load(args.checkpoint, map_location="cpu")
@@ -35,16 +38,25 @@ def main() -> None:
     model = create_fused_policy()
     model.load_state_dict(checkpoint["state_dict"])
     model.eval()
-    counts = {"labeled": 0, "fused_correct": 0, "privileged_correct": 0, "zero_image_correct": 0}
+    counts = {
+        "labeled": 0,
+        "fused_correct": 0,
+        "privileged_correct": 0,
+        "zero_image_correct": 0,
+        "fused_raw_correct": 0,
+        "privileged_raw_correct": 0,
+    }
     residuals: list[float] = []
     sensitivities: list[float] = []
+    generator = torch.Generator().manual_seed(args.seed)
     with torch.no_grad():
         for images, features, targets in DataLoader(
             FusedSampleDataset(args.samples, records), batch_size=args.batch_size
         ):
-            fused = model(images, features)["logits"]
-            privileged = model.privileged(features)
-            zero_image = model(torch.zeros_like(images), features)["logits"]
+            model_features = ablate_built_features(features, args.built_ablation, generator)
+            fused = model(images, model_features)["logits"]
+            privileged = model.privileged(model_features)
+            zero_image = model(torch.zeros_like(images), model_features)["logits"]
             residuals.append(float((fused - privileged).abs().mean().item()))
             sensitivities.append(float((fused - zero_image).abs().mean().item()))
             for row, target in enumerate(targets.tolist()):
@@ -54,6 +66,8 @@ def main() -> None:
                 counts["fused_correct"] += masked_prediction(fused[row], features[row]) == target
                 counts["privileged_correct"] += masked_prediction(privileged[row], features[row]) == target
                 counts["zero_image_correct"] += masked_prediction(zero_image[row], features[row]) == target
+                counts["fused_raw_correct"] += int(fused[row].argmax().item()) == target
+                counts["privileged_raw_correct"] += int(privileged[row].argmax().item()) == target
 
     labeled = counts["labeled"]
     metrics = {
@@ -64,6 +78,9 @@ def main() -> None:
         "fused_masked_accuracy": counts["fused_correct"] / labeled,
         "privileged_masked_accuracy": counts["privileged_correct"] / labeled,
         "zero_image_masked_accuracy": counts["zero_image_correct"] / labeled,
+        "fused_raw_accuracy": counts["fused_raw_correct"] / labeled,
+        "privileged_raw_accuracy": counts["privileged_raw_correct"] / labeled,
+        "built_ablation": args.built_ablation,
         "mean_abs_visual_residual": sum(residuals) / len(residuals),
         "mean_abs_real_vs_zero_image": sum(sensitivities) / len(sensitivities),
         "visual_scale": float(model.visual_scale.item()),
