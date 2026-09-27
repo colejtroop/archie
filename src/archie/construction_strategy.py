@@ -58,7 +58,10 @@ def enumerate_strategies(site: BuildSite) -> tuple[StrategyCandidate, ...]:
 
     candidates: list[StrategyCandidate] = []
     for rotations, approach in enumerate(APPROACHES):
-        face_width = site.width if rotations % 2 == 0 else site.depth
+        # V1 ranks access directions without rotating the supplied blueprint;
+        # geometric rotation becomes available when the spatial executor can
+        # apply the same transform in Minecraft.
+        face_width = site.width
         travel = site.block_count + face_width * 2
         turns = max(1, face_width - 1) + rotations
         support = approach in site.existing_vertical_support
@@ -80,8 +83,8 @@ def enumerate_strategies(site: BuildSite) -> tuple[StrategyCandidate, ...]:
             access = AccessMethod.SCAFFOLD
             # One reusable stair/tower per two blocks of face width. The planner
             # accounts for cleanup even though V1 lends these temporary blocks.
-            levels = max(1, site.height - 3)
-            scaffolds = levels * max(1, (face_width + 1) // 2)
+            levels = max(1, site.height - 2)
+            scaffolds = levels
             travel += scaffolds * 3
             risk = 0.12 + 0.02 * levels
 

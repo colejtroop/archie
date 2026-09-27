@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-Construction Strategy V1 ranks physically meaningful access plans before a spatial build: ground, jump, existing vertical support, or temporary scaffold. The selected method is now part of the validated Preview contract, structured telemetry, and Obsidian brain trace. The next controller milestone must physically place, climb, and remove any selected scaffold rather than granting elevated reach.
+V0.6.1 is the dirt-pillar motor milestone. The validated planar jump controller now aims directly at usable top faces with shorter settle time. Tall spatial builds replace the failed scaffolding-block climb with physical jump/place/land dirt pillaring and top-down break/fall descent. The first live dirt placement and landing succeeded; V0.6.1 aligns the pillar with the central construction lane after the former three-block lateral offset left the wall outside the usable view ray.
 
 ## What works
 
@@ -12,7 +12,7 @@ Construction Strategy V1 ranks physically meaningful access plans before a spati
 - Optional survival fields from the first agent-state schema
 - Sampled/bounded vision records with synchronized privileged labels
 - Native Obsidian brain graph accurately distinguishes the active privileged objective selector from the offline visual model and traces the live placement-controller branch sequence
-- Twenty-two focused tests pass on a portable Python runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
+- Thirty-nine focused tests pass on the project Python runtime; the simulator and live Preview wall runs report exact completion (9/9 blocks)
 - Packageable Preview behavior pack spawns a `SimulatedPlayer`, navigates, places via inventory interaction, observes the result, and emits structured chat telemetry
 - Live Preview run completed with `BLOCK_PLACEMENT_SUCCEEDED` and `EPISODE_COMPLETED` (`exact_completion: true`, one correct block, zero missing blocks)
 - Live Preview multi-block run physically built and verified a complete 3×3 stone wall through nine player-driven placements
@@ -47,7 +47,12 @@ Construction Strategy V1 ranks physically meaningful access plans before a spati
 - Construction Strategy V1 exposes a stable neural-training feature vector and ranks orientation/access candidates by movement, camera turns, scaffold material, and trapping risk. Tests verify that existing vertical support beats scaffolding and that a free-standing 9×9 wall requires scaffolding.
 - Structure loading now transmits the selected strategy to Preview, which validates it and emits `STRATEGY_SELECTED`; Obsidian displays the active ground, jump, wall, or scaffold choice.
 - Fused-policy training and evaluation accept controlled built-state dropout/ablation so dependence on privileged progress inputs can be measured rather than assumed.
+- The V0.5.1 scaffold controller emits placement/removal telemetry, requires cleanup for successful completion, and includes a generated `1x9` fixture that cannot pass the physical reach gate from ground level.
+- V0.5.7 adds non-terminal diagnostic pauses: crosshair mismatches trigger re-aim/reobserve recovery, exhausted subtasks remain live, and `/scriptevent archie:resume` retries without respawning or discarding episode state.
 - First live fused run: 10/10 V1 decisions applied (nine placements plus complete), zero fallbacks/rejections, average decision latency ~0.33 s, maximum ~0.65 s, and exact 9/9 physical completion with zero placement failures or retries.
+- V0.5.9 emits `MODEL_INFERENCE` directly from the JavaScript model with real H1/H2 active counts, peaks, strongest neuron values, valid actions, selected action, and selected logit. Obsidian renders that event under a stable `Live` root before following the physical controller branch.
+- The first V0.5.9 neural-telemetry demo completed 6/9 cells before the first top-row support face fell outside the 4.5-block view ray. V0.5.10 converts that specific second-failure state into a bounded visibility jump, aims during ascent, dispatches near the apex, and exposes `Jump` in Obsidian.
+- V0.5.10 successfully jump-placed the first two top-row cells, but selected each next objective while still 1.25 blocks airborne; the loose 2.25-block arrival gate then skipped lateral movement. V0.5.11 waits for `Land` and tightens upper-row arrival to 0.8 blocks.
 
 ## Decisions
 
@@ -74,4 +79,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Implement a reach gate plus physical temporary-scaffold placement, climbing, and cleanup. Validate it on a structure whose upper layer cannot be reached from ground level, then use the resulting trajectories as expert labels for the learned strategy ranker.
+Validate V0.6.0 in two stages: first confirm the faster neural 3×3 wall remains exact, then run the tall spatial fixture and verify `Center → Look Down → Jump → Place Dirt → Land` ascent plus `Break Dirt → Fall` descent without privileged movement.

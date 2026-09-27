@@ -12,7 +12,8 @@ class ConstructionStrategyTests(unittest.TestCase):
     def test_tall_free_standing_build_requires_scaffold(self) -> None:
         choice = choose_strategy(BuildSite(9, 9, 1, 81))
         self.assertEqual(choice.access, AccessMethod.SCAFFOLD)
-        self.assertGreater(choice.scaffold_blocks, 0)
+        self.assertEqual(choice.approach, "north")
+        self.assertEqual(choice.scaffold_blocks, 7)
 
     def test_existing_wall_beats_scaffolding(self) -> None:
         choice = choose_strategy(

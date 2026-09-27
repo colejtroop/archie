@@ -19,6 +19,10 @@ Archie is a research platform for an embodied neural agent that physically const
 - Headless expert-trajectory collection from Preview content logs, with concise in-game messages
 - PyTorch Objective Selector V0 trained by behavioral cloning across 15,024 valid wall states; 100% validity-masked held-out accuracy
 - Live Preview telemetry can drive the Obsidian brain graph and simultaneously record a crash-safe training trajectory
+- V0.5.9 sends the actual Bedrock Objective Selector H1/H2 activations, valid-action set, chosen action, and selected logit to Obsidian; the graph no longer reconstructs a guessed neural state after the decision
+- V0.5.10 adds bounded jump-to-see recovery for upper planar cells: after grounded re-aim fails, Archie raises its eye line, aims while rising, places near the jump apex, and verifies the result
+- V0.5.11 waits for a stable landing after jump placement and uses a tight upper-lane arrival radius, restoring lateral movement before selecting the next top-row target
+- V0.6.0 replaces the failed scaffolding-block climb with physical dirt pillaring: look down, jump, place beneath Archie's feet, land, repeat, then break the pillar top-down to descend. Direct top-face aiming and a three-tick settle reduce avoidable placement retries.
 - Visual Encoder V0 training pipeline: compact CNN, 128-dimensional embedding, and masked progress/action/placement supervision
 - Vision-fused V1 policy scaffold: the proven privileged selector is frozen as a safe base while a gated visual residual learns from episode-held-out data
 - First trained fused checkpoint: 100% masked accuracy on 38 actions from an entirely held-out rainy episode, with measurable image-conditioned logit changes and no inherited-policy regression
@@ -31,6 +35,8 @@ Archie is a research platform for an embodied neural agent that physically const
 - Camera-aware layer inspection viewpoints that step back, aim at completed work, and retain synchronized frames for future learned visibility checks
 - Compact live Obsidian graph labels with one illuminated execution node advancing through planning, control, observation, and completion
 - Construction-strategy ranking across ground, jump, existing-support, and temporary-scaffold access, with explicit travel, camera, material, and trapping costs
+- A physical six-block interaction reach gate and experimental scaffold executor that places, climbs, and removes temporary access blocks
+- Persistent placement recovery that re-aims and reobserves before pausing a confused subtask in place; paused episodes can resume without respawning Archie
 - Configurable built-state dropout and evaluation ablation for measuring how strongly the fused policy still depends on privileged progress state
 
 ### Experimental
@@ -40,7 +46,7 @@ Archie is a research platform for an embodied neural agent that physically const
 ### Planned
 
 - Multi-episode visual dataset covering varied lighting, weather, viewpoints, and placement failures
-- Physical placement, climbing, and cleanup of planner-selected temporary scaffolding
+- Physical validation and recovery tuning for planner-selected temporary scaffolding
 - Expert trajectories and a PyTorch visual/construction policy
 
 ## Quick start
@@ -54,9 +60,11 @@ python -m venv .venv
 .venv\Scripts\archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 ```
 
-Open Obsidian's native Graph View, then run the Archie command in Minecraft Preview. The graph follows Preview's content-log telemetry and records the episode under `data/generated/trajectories`. Pass `--source demo` to visualize the trained model without Minecraft.
+Open Obsidian's native Graph View, then run the Archie command in Minecraft Preview. The stable `Live` node points to the currently executing model or controller stage. In a planar Objective Selector run, the brightest H1/H2 nodes are real activations emitted by the in-game model. Spatial `.mcstructure` runs are labeled as deterministic planner activity and do not claim neural activations. The listener also records the episode under `data/generated/trajectories`. Pass `--source demo` for an offline model visualization.
 
 Telemetry is written to `artifacts/v0-telemetry.jsonl` and excluded from Git.
+
+The versioned experimental record, quantitative results, failures, limitations, and paper-development checklist are maintained in [`docs/RESEARCH_LOG.md`](docs/RESEARCH_LOG.md).
 
 ## Architecture
 

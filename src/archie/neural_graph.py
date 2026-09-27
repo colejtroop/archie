@@ -21,12 +21,13 @@ from .vision import RecordingPolicy, VisionRecorder
 class ObsidianNeuralGraph:
     """A human-scale, live view of the real objective-selector computation."""
 
-    def __init__(self, vault: Path, checkpoint: Path) -> None:
+    def __init__(self, vault: Path, checkpoint: Path, runtime_label: str = "Live") -> None:
         import torch
 
         self.torch = torch
         self.vault = vault
         self.root = vault / "Archie" / "Brain"
+        self.runtime_label = runtime_label
         self.model = create_objective_selector()
         saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
         self.model.load_state_dict(saved["state_dict"])
@@ -55,6 +56,8 @@ class ObsidianNeuralGraph:
     def _note(self, name: str, role: str, links: list[str], body: str, current: bool = False) -> None:
         if current:
             self._clear_current_tags()
+            if name != "Live" and "Live" not in links:
+                links = ["Live", *links]
         tags = ["archie-brain", f"brain-{role}"]
         if current:
             tags.append("brain-current")
@@ -69,7 +72,38 @@ class ObsidianNeuralGraph:
         safe_name = "".join("-" if character in '<>:"/\\|?*' else character for character in name).strip(" .")
         if not safe_name:
             raise ValueError("Obsidian node name contains no filesystem-safe characters")
-        (self.root / f"{safe_name}.md").write_text(content, encoding="utf-8")
+        path = self.root / f"{safe_name}.md"
+        for attempt in range(4):
+            try:
+                path.write_text(content, encoding="utf-8")
+                if current and name != "Live":
+                    self._write_live_root(name)
+                return
+            except PermissionError:
+                if attempt == 3:
+                    return
+                sleep(0.05)
+
+    def _write_live_root(self, active_node: str) -> None:
+        """Keep a stable graph center pointed at the reasoning node active now."""
+        links = "[[Goal]]" if active_node == "Goal" else f"[[Goal]] [[{active_node}]]"
+        content = (
+            "---\n"
+            "tags: [archie-brain, brain-objective, brain-live-root]\n"
+            "---\n"
+            "# Live\n\n"
+            f"Archie's current {self.runtime_label} reasoning stage: **{active_node}**.\n\n"
+            f"{links}\n"
+        )
+        path = self.root / "Live.md"
+        for attempt in range(4):
+            try:
+                path.write_text(content, encoding="utf-8")
+                return
+            except PermissionError:
+                if attempt == 3:
+                    return
+                sleep(0.05)
 
     def _clear_current_tags(self) -> None:
         """Keep exactly one graph node illuminated as execution advances."""
@@ -80,25 +114,42 @@ class ObsidianNeuralGraph:
             if "brain-current" not in content:
                 continue
             content = content.replace(", brain-current", "").replace("brain-current, ", "")
-            path.write_text(content, encoding="utf-8")
+            try:
+                path.write_text(content, encoding="utf-8")
+            except PermissionError:
+                # Obsidian can briefly hold a note while Graph View indexes it.
+                # Missing one visual refresh must never kill live telemetry.
+                continue
 
     def _remove_nodes(self, *patterns: str) -> None:
         for pattern in patterns:
             for path in self.root.glob(pattern):
                 if self._is_generated(path):
-                    path.unlink()
+                    self._safe_unlink(path)
+
+    @staticmethod
+    def _safe_unlink(path: Path) -> None:
+        for attempt in range(4):
+            try:
+                path.unlink(missing_ok=True)
+                return
+            except PermissionError:
+                if attempt == 3:
+                    return
+                sleep(0.05)
 
     def materialize(self) -> None:
         old_root = self.vault / "Archie" / "Neural Network"
         if old_root.exists():
             for path in old_root.glob("*.md"):
                 if self._is_generated(path):
-                    path.unlink()
+                    self._safe_unlink(path)
         self.root.mkdir(parents=True, exist_ok=True)
         for path in self.root.glob("*.md"):
             if self._is_generated(path):
-                path.unlink()
+                self._safe_unlink(path)
         self._note("Goal", "objective", [], "Build the active blueprint exactly.")
+        self._write_live_root("Goal")
         self._configure_graph()
 
     def _configure_graph(self) -> None:
@@ -138,10 +189,10 @@ class ObsidianNeuralGraph:
         graph_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
 
     def _clear_live_notes(self) -> None:
-        persistent = {"Goal.md"}
+        persistent = {"Goal.md", "Live.md"}
         for path in self.root.glob("*.md"):
             if self._is_generated(path) and path.name not in persistent:
-                path.unlink()
+                self._safe_unlink(path)
 
     @staticmethod
     def _is_generated(path: Path) -> bool:
@@ -222,12 +273,65 @@ class ObsidianNeuralGraph:
                     "Plan",
                     "model",
                     [blueprint],
-                    "Order supported cells into efficient far-to-near placement rays.",
+                    f"{self.runtime_label}: order supported cells into efficient far-to-near placement rays. "
+                    "This spatial controller is deterministic; neural activations appear only when the "
+                    "Objective Selector is actually used.",
                     True,
                 )
             else:
+                self._clear_live_notes()
                 self._note("Goal", "objective", [], "Build the active blueprint exactly.")
-                self.step([0, 0, 0])
+                self._note(
+                    "Input",
+                    "input",
+                    ["Goal"],
+                    "The live planar blueprint and verified occupancy mask supplied inside Minecraft.",
+                )
+                self._note("Think", "model", ["Input"], "Waiting for the next real model inference.", True)
+            return
+        if event.event_type is EventType.MODEL_INFERENCE:
+            if self.spatial_episode:
+                return
+            self._remove_nodes(
+                "State*.md",
+                "H1*.md",
+                "H2*.md",
+                "Choice.md",
+                "Target*.md",
+                "Policy.md",
+            )
+            built = int(event.payload.get("built_on", 0) or 0)
+            total = int(event.payload.get("blueprint_on", self.total_blocks) or self.total_blocks)
+            state = f"State {built}-{total}"
+            self._note(state, "state", ["Input"], f"Minecraft reports {built} of {total} target cells occupied.")
+
+            def layer(name: str, payload_name: str, parent: str) -> str:
+                summary = event.payload.get(payload_name) or {}
+                active = int(summary.get("active", 0) or 0)
+                peak = float(summary.get("peak", 0.0) or 0.0)
+                self._note(name, "model", [parent], f"{active} active neurons; peak {peak:.4f}.")
+                for item in summary.get("top") or []:
+                    if not isinstance(item, list) or len(item) != 2:
+                        continue
+                    index, value = item
+                    if not isinstance(index, int) or not isinstance(value, (int, float)):
+                        continue
+                    self._note(f"{name} {index}", "model", [name], f"Activation {float(value):.4f}.")
+                return name
+
+            hidden_1 = layer("H1", "hidden_1", state)
+            hidden_2 = layer("H2", "hidden_2", hidden_1)
+            action = event.payload.get("selected_action")
+            logit = float(event.payload.get("selected_logit", 0.0) or 0.0)
+            valid_count = len(event.payload.get("valid_actions") or [])
+            self._note(
+                "Choice",
+                "decision",
+                [hidden_2],
+                f"Selected action {action} at logit {logit:.4f} from {valid_count} physically valid actions.",
+                True,
+            )
+            self.placement_note = "Choice"
             return
         if event.event_type is EventType.VIEWPOINT_SELECTED:
             self._remove_nodes("Inspect.md")
@@ -253,6 +357,26 @@ class ObsidianNeuralGraph:
                 True,
             )
             self.placement_note = label
+            return
+        if event.event_type is EventType.EPISODE_PAUSED:
+            self._note(
+                "Paused",
+                "action",
+                [self.placement_note or "Plan"],
+                f"{event.payload.get('stage', 'unknown')} needs a revised action. Diagnostics remain live.",
+                True,
+            )
+            self.placement_note = "Paused"
+            return
+        if event.event_type is EventType.EPISODE_RESUMED:
+            self._note(
+                "Resume",
+                "decision",
+                ["Paused"],
+                f"Retrying {event.payload.get('stage', 'paused subtask')} with fresh observations.",
+                True,
+            )
+            self.placement_note = "Resume"
             return
         if event.event_type is EventType.VISUAL_CHECK:
             note = "Observe"
@@ -294,30 +418,17 @@ class ObsidianNeuralGraph:
                 self.current_target_note = note
                 self.placement_note = note
                 return
-            heights = [0, 0, 0]
-            for action in self.built_actions:
-                x, y = action % MAX_WIDTH, action // MAX_WIDTH
-                if x < len(heights):
-                    heights[x] = max(heights[x], y + 1)
-            predicted = self.step(heights)
-            source_note = "Policy"
+            source_note = "Target"
+            target = event.payload.get("target")
             self._note(
                 source_note,
-                "model",
-                [self.current_target_note or "Selector"],
-                "The policy source that selected the live objective for this state revision.",
+                "decision",
+                ["Choice"],
+                f"The live {policy} selected action {self.current_action} at Minecraft target {target}.",
                 True,
             )
+            self.current_target_note = source_note
             self.placement_note = source_note
-            if self.current_action is not None and predicted != self.current_action:
-                title = "Override" if policy == "vision-fused-policy-v1" else "Mismatch"
-                self._note(
-                    title,
-                    "action",
-                    [source_note],
-                    f"Privileged selector proposed {predicted}; live policy selected {self.current_action}.",
-                    True,
-                )
             return
         if event.event_type is EventType.PLACEMENT_DECISION:
             decision = str(event.payload.get("decision", "UNKNOWN")).lower()
@@ -355,16 +466,8 @@ class ObsidianNeuralGraph:
                 )
                 self.placement_note = progress
                 return
-            heights = [0, 0, 0]
-            for action in self.built_actions:
-                x, y = action % MAX_WIDTH, action // MAX_WIDTH
-                if x < len(heights):
-                    heights[x] = max(heights[x], y + 1)
-            self.step(heights)
             return
         if event.event_type is EventType.EPISODE_COMPLETED:
-            if not self.spatial_episode:
-                self.step([3, 3, 3])
             self._note(
                 "Complete",
                 "complete",
@@ -407,8 +510,13 @@ def main() -> None:
     parser.add_argument("--live-fused", action="store_true")
     parser.add_argument("--fused-checkpoint", type=Path, default=Path("checkpoints/vision-fused-policy-v1.pt"))
     parser.add_argument("--external-token", default=None)
+    parser.add_argument(
+        "--runtime-label",
+        default="Live",
+        help="short label shown on the live controller node (for example V0.4.5)",
+    )
     args = parser.parse_args()
-    graph = ObsidianNeuralGraph(args.vault, args.checkpoint)
+    graph = ObsidianNeuralGraph(args.vault, args.checkpoint, args.runtime_label)
     graph.materialize()
     print(f"Obsidian brain graph: {graph.root}")
     print("Open Obsidian Graph View. Press Ctrl+C to stop live updates.")
