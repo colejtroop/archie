@@ -67,6 +67,8 @@ V0.6.0 replaces item-specific scaffolding movement with a physical dirt pillar. 
 
 V0.6.1 aligns the dirt pillar with the structure's central construction lane. The first live V0.6.0 test successfully performed `Jump → Place Dirt → Land`, but its old three-block lateral offset created an unusable diagonal camera ray to the next wall support. The corrected pillar remains two blocks in front of the wall, matching Archie's proven ground-level placement geometry.
 
+V0.7.2 adds `/scriptevent archie:course`. It resets to the neural 3×3 wall, spawns Archie thirteen blocks from the site, creates three staggered two-block-high barriers with alternating gaps, and records `COURSE_CONFIGURED`, `NAVIGATION_OBSERVATION`, and `NAVIGATION_REPLAN` events. Bedrock navigation is explicitly labeled as a privileged expert teacher rather than a learned skill. Because obstacle blocks and navigation can begin in the same tick, the controller refreshes the route once per second inside a bounded twelve-second window. Live episode `783233-4` crossed the course without pausing and completed the wall exactly 9/9.
+
 ### Opt-in first-person capture
 
 Archie's camera mirror is always off by default. To prepare a bounded, labeled capture run:

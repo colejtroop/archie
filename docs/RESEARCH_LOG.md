@@ -83,6 +83,18 @@ Archie studies whether an embodied Minecraft agent can learn to construct struct
 
 **Status:** Packaged; awaiting live Preview validation.
 
+### V0.7.2 — obstacle-course construction curriculum
+
+**Question:** Can the existing embodied controller traverse a newly generated obstacle layout and still complete construction, while producing honest expert-route data for a future learned motor policy?
+
+**Change:** Added a thirteen-block approach containing three staggered, two-block-high barriers (66 obstacle blocks), alternating gaps, periodic route observations, a bounded twelve-second navigation window, and automatic route refresh after live block edits.
+
+**Live result:** Episode `783233-4` required a route refresh after the pathing map settled, traversed the course without `EPISODE_PAUSED`, and completed the 3×3 wall exactly 9/9 with zero failed placements.
+
+**Interpretation:** This validates the curriculum environment and privileged expert-data path. It does not demonstrate learned navigation; Bedrock's navigator still supplies the route.
+
+**Status:** Engineering curriculum validated. Learned motor-policy baseline is next.
+
 ## Current limitations and threats to validity
 
 - The spatial blueprint planner is deterministic. Its decisions must not be described as learned neural reasoning.

@@ -2,7 +2,7 @@
 
 ## Current milestone
 
-V0.6.1 is the dirt-pillar motor milestone. The validated planar jump controller now aims directly at usable top faces with shorter settle time. Tall spatial builds replace the failed scaffolding-block climb with physical jump/place/land dirt pillaring and top-down break/fall descent. The first live dirt placement and landing succeeded; V0.6.1 aligns the pillar with the central construction lane after the former three-block lateral offset left the wall outside the usable view ray.
+V0.7.2 is the navigation-curriculum milestone. A repeatable three-barrier course places Archie thirteen blocks from the construction site, records privileged expert-route observations, refreshes navigation after live obstacle edits settle, and then hands off to the validated neural 3×3 builder. The latest live course completed without a diagnostic pause and finished exactly 9/9.
 
 ## What works
 
@@ -53,6 +53,8 @@ V0.6.1 is the dirt-pillar motor milestone. The validated planar jump controller 
 - V0.5.9 emits `MODEL_INFERENCE` directly from the JavaScript model with real H1/H2 active counts, peaks, strongest neuron values, valid actions, selected action, and selected logit. Obsidian renders that event under a stable `Live` root before following the physical controller branch.
 - The first V0.5.9 neural-telemetry demo completed 6/9 cells before the first top-row support face fell outside the 4.5-block view ray. V0.5.10 converts that specific second-failure state into a bounded visibility jump, aims during ascent, dispatches near the apex, and exposes `Jump` in Obsidian.
 - V0.5.10 successfully jump-placed the first two top-row cells, but selected each next objective while still 1.25 blocks airborne; the loose 2.25-block arrival gate then skipped lateral movement. V0.5.11 waits for `Land` and tightens upper-row arrival to 0.8 blocks.
+- V0.6.1 completed a live 1×9 vertical build with seven physical dirt-pillar ascent blocks, all nine cobblestone placements, and seven-block top-down cleanup descent.
+- V0.7.2 episode `783233-4` generated 66 barrier blocks, triggered automatic path replanning after the navigation mesh settled, completed without `EPISODE_PAUSED`, and reached exact 9/9 construction with zero failed placements.
 
 ## Decisions
 
@@ -79,4 +81,4 @@ archie-neural-graph --vault "C:\path\to\your\ObsidianVault"
 
 ## Immediate next step
 
-Validate V0.6.0 in two stages: first confirm the faster neural 3×3 wall remains exact, then run the tall spatial fixture and verify `Center → Look Down → Jump → Place Dirt → Land` ascent plus `Break Dirt → Fall` descent without privileged movement.
+Generate randomized navigation layouts and export expert state/action/outcome sequences for a learned motor-policy baseline. Keep Bedrock navigation explicitly labeled as privileged teaching data, then compare behavioral cloning against direct-line and expert-controller baselines on held-out courses.

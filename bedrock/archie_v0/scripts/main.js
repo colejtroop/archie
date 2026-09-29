@@ -9,6 +9,7 @@ import { spawnSimulatedPlayer } from "@minecraft/server-gametest";
 import { OBJECTIVE_SELECTOR_V0 } from "./policy_weights.js";
 
 const COMMAND = "archie:start";
+const COURSE_COMMAND = "archie:course";
 const RESUME_COMMAND = "archie:resume";
 const BLUEPRINT_COMMAND = "archie:blueprint";
 const STRUCTURE_COMMAND = "archie:structure";
@@ -342,7 +343,7 @@ function disconnectActivePlayer() {
   activePlayer = undefined;
 }
 
-function startPhysicalBuild(source) {
+function startPhysicalBuild(source, obstacleCourse = false) {
   disconnectActivePlayer();
   resumeActiveEpisode = undefined;
   if (pendingPolicy) {
@@ -367,8 +368,10 @@ function startPhysicalBuild(source) {
 
   const dimension = source.dimension;
   // Keep the observing player outside Archie's spawn-to-wall navigation path.
-  const origin = add(blockPosition(source.location), 4, 0, 0);
-  const start = add(origin, 1, 0, 4);
+  const origin = obstacleCourse
+    ? add(blockPosition(source.location), 4, 0, 8)
+    : add(blockPosition(source.location), 4, 0, 0);
+  const start = obstacleCourse ? add(origin, -12, 0, 0) : add(origin, 1, 0, 4);
   const scaffoldRequired = spatial && blueprintDefinition.strategy.access === "scaffold";
   const scaffoldHeight = scaffoldRequired ? Math.max(1, blueprintHeight - 2) : 0;
   // Pillar in the central construction lane, two blocks in front of the
@@ -432,6 +435,28 @@ function startPhysicalBuild(source) {
   }
   dimension.getBlock(start)?.setType("minecraft:air");
 
+  const courseBarriers = [];
+  if (obstacleCourse) {
+    const definitions = [
+      { x: -9, gaps: new Set([2, 3]) },
+      { x: -6, gaps: new Set([-3, -2]) },
+      { x: -3, gaps: new Set([1, 2]) },
+    ];
+    for (const definition of definitions) {
+      for (let lateral = -6; lateral <= 6; lateral += 1) {
+        for (let height = 0; height <= 1; height += 1) {
+          const block = add(origin, definition.x, height, lateral);
+          if (definition.gaps.has(lateral)) {
+            dimension.getBlock(block)?.setType("minecraft:air");
+          } else {
+            dimension.getBlock(block)?.setType("minecraft:cobblestone");
+            courseBarriers.push(block);
+          }
+        }
+      }
+    }
+  }
+
   emit("EPISODE_STARTED", {
     origin,
     blueprint: blueprintDefinition.name,
@@ -440,7 +465,18 @@ function startPhysicalBuild(source) {
     policy: spatial ? "spatial-blueprint-planner-v0" : "objective-selector-v0",
     episode,
     vision_capture: visionPlayer !== undefined,
+    obstacle_course: obstacleCourse,
   });
+  if (obstacleCourse) {
+    emit("COURSE_CONFIGURED", {
+      curriculum: "navigation-v0",
+      start,
+      goal: add(origin, 1, 0, 0),
+      barrier_blocks: courseBarriers.length,
+      barriers: [-9, -6, -3],
+      privileged_teacher: true,
+    });
+  }
   emit("BLUEPRINT_LOADED", {
     name: blueprintDefinition.name,
     blocks: targets.size,
@@ -1091,11 +1127,37 @@ function startPhysicalBuild(source) {
 
   function waitForTarget(action, waitedTicks = 0) {
     const task = targets.get(action);
-    if (distance(activePlayer.location, task.stand) <= arrivalFor(task)) {
+    const remaining = distance(activePlayer.location, task.stand);
+    if (obstacleCourse && waitedTicks % (MOVEMENT_POLL_TICKS * 2) === 0) {
+      emit("NAVIGATION_OBSERVATION", {
+        curriculum: "navigation-v0",
+        player: activePlayer.location,
+        destination: task.stand,
+        remaining,
+        action: "navigate",
+      });
+    }
+    if (remaining <= arrivalFor(task)) {
       placeIfReachable(action);
       return;
     }
-    if (waitedTicks >= MOVE_TIMEOUT_TICKS) {
+    if (obstacleCourse && waitedTicks > 0 && waitedTicks % 20 === 0) {
+      placementDecision("REPLAN", "refresh route after the obstacle navigation mesh settles", task.target);
+      emit("NAVIGATION_REPLAN", {
+        curriculum: "navigation-v0",
+        player: activePlayer.location,
+        destination: task.stand,
+        remaining,
+        waited_ticks: waitedTicks,
+      });
+      try {
+        activePlayer.navigateToLocation(task.stand, 1.0);
+      } catch (error) {
+        emit("NAVIGATION_REPLAN_REJECTED", { target: task.target, error: String(error) });
+      }
+    }
+    const navigationTimeout = obstacleCourse ? MOVE_TIMEOUT_TICKS * 6 : MOVE_TIMEOUT_TICKS;
+    if (waitedTicks >= navigationTimeout) {
       prepareTarget(action);
       return;
     }
@@ -1327,15 +1389,16 @@ system.afterEvents.scriptEventReceive.subscribe((event) => {
     world.sendMessage("§5[Archie]§r Resuming the paused subtask with fresh observations.");
     return;
   }
-  if (event.id !== COMMAND) return;
+  if (event.id !== COMMAND && event.id !== COURSE_COMMAND) return;
   if (!event.sourceEntity || event.sourceEntity.typeId !== "minecraft:player") {
     emit("EPISODE_FAILED", { stage: "command", error: "Run the command as a player." });
     return;
   }
-  startPhysicalBuild(event.sourceEntity);
+  if (event.id === COURSE_COMMAND) selectedBlueprint = DEFAULT_BLUEPRINT;
+  startPhysicalBuild(event.sourceEntity, event.id === COURSE_COMMAND);
 });
 
 world.afterEvents.worldLoad.subscribe(() => {
-  world.sendMessage("§5[Archie V0.6.1]§r Ready. Run §f/scriptevent archie:start§r as an operator.");
+  world.sendMessage("§5[Archie V0.7.2]§r Ready. Run §f/scriptevent archie:start§r or §f/scriptevent archie:course§r.");
 });
 

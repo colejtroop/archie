@@ -23,6 +23,7 @@ Archie is a research platform for an embodied neural agent that physically const
 - V0.5.10 adds bounded jump-to-see recovery for upper planar cells: after grounded re-aim fails, Archie raises its eye line, aims while rising, places near the jump apex, and verifies the result
 - V0.5.11 waits for a stable landing after jump placement and uses a tight upper-lane arrival radius, restoring lateral movement before selecting the next top-row target
 - V0.6.0 replaces the failed scaffolding-block climb with physical dirt pillaring: look down, jump, place beneath Archie's feet, land, repeat, then break the pillar top-down to descend. Direct top-face aiming and a three-tick settle reduce avoidable placement retries.
+- V0.7.2 adds a repeatable navigation curriculum with three staggered barriers, privileged-expert route telemetry, a bounded route window, and automatic replanning after live obstacle edits; the validated course completed its 3×3 build exactly without pausing
 - Visual Encoder V0 training pipeline: compact CNN, 128-dimensional embedding, and masked progress/action/placement supervision
 - Vision-fused V1 policy scaffold: the proven privileged selector is frozen as a safe base while a gated visual residual learns from episode-held-out data
 - First trained fused checkpoint: 100% masked accuracy on 38 actions from an entirely held-out rainy episode, with measurable image-conditioned logit changes and no inherited-policy regression
@@ -46,6 +47,7 @@ Archie is a research platform for an embodied neural agent that physically const
 ### Planned
 
 - Multi-episode visual dataset covering varied lighting, weather, viewpoints, and placement failures
+- Randomized obstacle layouts and a learned motor policy trained from navigation expert trajectories
 - Physical validation and recovery tuning for planner-selected temporary scaffolding
 - Expert trajectories and a PyTorch visual/construction policy
 

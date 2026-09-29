@@ -1,10 +1,10 @@
 {
   "format_version": 2,
   "header": {
-    "name": "Archie V0.6.1 Dirt Pillar",
+    "name": "Archie V0.7.2 Navigation Curriculum",
     "description": "Blueprint input, native mcstructure loading, responsive movement, placement, observation, and verification for Archie.",
     "uuid": "4723e583-3eb9-4dde-a881-1034b86d8f06",
-    "version": [0, 6, 1],
+    "version": [0, 7, 2],
     "min_engine_version": [1, 26, 60]
   },
   "modules": [
@@ -12,7 +12,7 @@
       "type": "script",
       "language": "javascript",
       "uuid": "3ff31f50-c4b9-4fdf-a16c-fa1ab722c49d",
-      "version": [0, 6, 1],
+      "version": [0, 7, 2],
       "entry": "scripts/main.js"
     }
   ],
